@@ -172,6 +172,13 @@
             100% { opacity: 0; transform: scale(0) translate(var(--dx), var(--dy)); }
         }
 
+        @keyframes slideInOut {
+            0% { transform: translateX(100%); opacity: 0; }
+            10% { transform: translateX(0); opacity: 1; }
+            90% { transform: translateX(0); opacity: 1; }
+            100% { transform: translateX(-100%); opacity: 0; }
+        }
+
         .menu-button {
             position: fixed;
             top: 20px;
@@ -411,12 +418,7 @@
             max-width: 80%;
             max-height: 80%;
             border-radius: 15px;
-            animation: cutscene-appear 1s ease-out;
-        }
-
-        @keyframes cutscene-appear {
-            0% { opacity: 0; transform: scale(0.5); }
-            100% { opacity: 1; transform: scale(1); }
+            animation: slideInOut 1.5s ease-out forwards;
         }
 
         .file-input-wrapper {
@@ -885,8 +887,9 @@
                 const panel = gameState.board[y][x];
                 
                 cell.innerHTML = '';
+                cell.className = 'cell'; // リセット
                 if (panel) {
-                    cell.className = `cell color-${panel.color}`;
+                    cell.classList.add(`color-${panel.color}`);
                     if (panel.type === 'bomb') {
                         cell.classList.add('bomb');
                         cell.textContent = '💣';
@@ -910,9 +913,6 @@
                     } else {
                         cell.textContent = colorEmojis[panel.color];
                     }
-                } else {
-                    cell.className = 'cell';
-                    cell.textContent = '';
                 }
             });
             
@@ -1664,19 +1664,32 @@
         // 色画像保存
         function saveColorImages() {
             const colors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
+            let pending = colors.length;
+            let completed = 0;
+
             colors.forEach(color => {
                 const input = document.getElementById(`color${color.charAt(0).toUpperCase() + color.slice(1)}Image`);
                 if (input.files && input.files[0]) {
                     const reader = new FileReader();
                     reader.onload = function(e) {
                         gameState.colorImages[color] = e.target.result;
-                        saveData();
-                        updateDisplay();
+                        completed++;
+                        if (completed === pending) {
+                            saveData();
+                            updateDisplay();
+                            alert('色画像を保存しました！');
+                        }
                     };
                     reader.readAsDataURL(input.files[0]);
+                } else {
+                    completed++;
+                    if (completed === pending) {
+                        saveData();
+                        updateDisplay();
+                        alert('色画像を保存しました！');
+                    }
                 }
             });
-            alert('色画像を保存しました！');
         }
 
         // 色フォーム更新
@@ -1812,15 +1825,17 @@
                 activeDeck: gameState.activeDeck,
                 colorImages: gameState.colorImages
             };
-            window.gameData = data;
+            localStorage.setItem('customTsumTsumData', JSON.stringify(data));
         }
 
         function loadData() {
-            if (window.gameData) {
-                gameState.skills = window.gameData.skills || [];
-                gameState.specialPanels = window.gameData.specialPanels || [];
-                gameState.activeDeck = window.gameData.activeDeck || [];
-                gameState.colorImages = window.gameData.colorImages || {
+            const savedData = localStorage.getItem('customTsumTsumData');
+            if (savedData) {
+                const data = JSON.parse(savedData);
+                gameState.skills = data.skills || [];
+                gameState.specialPanels = data.specialPanels || [];
+                gameState.activeDeck = data.activeDeck || [];
+                gameState.colorImages = data.colorImages || {
                     red: null,
                     blue: null,
                     green: null,
