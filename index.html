@@ -448,6 +448,12 @@
             margin-top: 10px;
             border-radius: 5px;
         }
+        .cell img {
+            pointer-events: none; /* 画像がクリック/タッチイベントを吸収しないように */
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* 画像がセルにフィットするように */
+        }
 
         @media (max-width: 480px) {
             .container {
@@ -879,97 +885,93 @@
         }
 
         // 表示更新
-        function updateDisplay() {
-            const cells = document.querySelectorAll('.cell');
-            cells.forEach(cell => {
-                const x = parseInt(cell.dataset.x);
-                const y = parseInt(cell.dataset.y);
-                const panel = gameState.board[y][x];
-                
-                cell.innerHTML = '';
-                cell.className = 'cell'; // リセット
-                if (panel) {
-                    cell.classList.add(`color-${panel.color}`);
-                    if (panel.type === 'bomb') {
-                        cell.classList.add('bomb');
-                        cell.textContent = '💣';
-                    } else if (panel.type === 'special') {
-                        cell.classList.add('special');
-                        if (panel.imageUrl) {
-                            const img = document.createElement('img');
-                            img.src = panel.imageUrl;
-                            img.style.width = '100%';
-                            img.style.height = '100%';
-                            cell.appendChild(img);
-                        } else {
-                            cell.textContent = panel.emoji || colorEmojis[panel.color];
-                        }
-                    } else if (gameState.colorImages[panel.color]) {
-                        const img = document.createElement('img');
-                        img.src = gameState.colorImages[panel.color];
-                        img.style.width = '100%';
-                        img.style.height = '100%';
-                        cell.appendChild(img);
-                    } else {
-                        cell.textContent = colorEmojis[panel.color];
-                    }
+function updateDisplay() {
+    const cells = document.querySelectorAll('.cell');
+    cells.forEach(cell => {
+        const x = parseInt(cell.dataset.x);
+        const y = parseInt(cell.dataset.y);
+        const panel = gameState.board[y][x];
+        
+        cell.innerHTML = '';
+        cell.className = 'cell'; // リセット
+        if (panel && panel.type !== 'empty') {
+            cell.classList.add(`color-${panel.color}`);
+            if (panel.type === 'bomb') {
+                cell.classList.add('bomb');
+                cell.textContent = '💣';
+            } else if (panel.type === 'special') {
+                cell.classList.add('special');
+                if (panel.imageUrl) {
+                    const img = document.createElement('img');
+                    img.src = panel.imageUrl;
+                    cell.appendChild(img);
+                } else {
+                    cell.textContent = panel.emoji || colorEmojis[panel.color];
                 }
-            });
-            
-            document.getElementById('score').textContent = gameState.score;
-            document.getElementById('time').textContent = gameState.timeLeft;
-            document.getElementById('chain').textContent = gameState.chain;
+            } else if (gameState.colorImages[panel.color]) {
+                const img = document.createElement('img');
+                img.src = gameState.colorImages[panel.color];
+                cell.appendChild(img);
+            } else {
+                cell.textContent = colorEmojis[panel.color];
+            }
         }
+    });
+    
+    document.getElementById('score').textContent = gameState.score;
+    document.getElementById('time').textContent = gameState.timeLeft;
+    document.getElementById('chain').textContent = gameState.chain;
+}
 
         // セル選択処理
         let isSelecting = false;
         let lastSelectedCell = null;
 
-        function startSelection(e) {
-            if (!gameState.isGameActive) return;
-            
-            isSelecting = true;
-            gameState.selectedCells = [];
-            const cell = e.target.closest('.cell');
-            if (!cell) return;
-            
-            const x = parseInt(cell.dataset.x);
-            const y = parseInt(cell.dataset.y);
-            
-            if (gameState.board[y][x] && gameState.board[y][x].type === 'bomb') {
-                explodeBomb(x, y);
-                return;
-            }
-            
-            if (gameState.board[y][x] && gameState.board[y][x].type === 'special') {
-                handleSpecialPanelTap(x, y);
-                return;
-            }
-            
+// セル選択処理
+function startSelection(e) {
+    if (!gameState.isGameActive) return;
+    
+    isSelecting = true;
+    gameState.selectedCells = [];
+    const cell = e.target.closest('.cell'); // 画像でも親のcellを取得
+    if (!cell) return;
+    
+    const x = parseInt(cell.dataset.x);
+    const y = parseInt(cell.dataset.y);
+    
+    if (gameState.board[y][x] && gameState.board[y][x].type === 'bomb') {
+        explodeBomb(x, y);
+        return;
+    }
+    
+    if (gameState.board[y][x] && gameState.board[y][x].type === 'special') {
+        handleSpecialPanelTap(x, y);
+        return;
+    }
+    
+    selectCell(x, y);
+    lastSelectedCell = {x, y};
+}
+
+function continueSelection(e) {
+    if (!isSelecting || !gameState.isGameActive) return;
+    
+    const cell = e.target.closest('.cell'); // 画像でも親のcellを取得
+    if (!cell) return;
+    
+    const x = parseInt(cell.dataset.x);
+    const y = parseInt(cell.dataset.y);
+    
+    if (lastSelectedCell && isAdjacent(lastSelectedCell.x, lastSelectedCell.y, x, y)) {
+        const panel = gameState.board[y][x];
+        if (panel && panel.type === 'normal' && 
+            (gameState.selectedCells.length === 0 || 
+             gameState.selectedCells[0].color === panel.color)) {
             selectCell(x, y);
             lastSelectedCell = {x, y};
         }
-
-        function continueSelection(e) {
-            if (!isSelecting || !gameState.isGameActive) return;
-            
-            const cell = e.target.closest('.cell');
-            if (!cell) return;
-            
-            const x = parseInt(cell.dataset.x);
-            const y = parseInt(cell.dataset.y);
-            
-            if (lastSelectedCell && isAdjacent(lastSelectedCell.x, lastSelectedCell.y, x, y)) {
-                const panel = gameState.board[y][x];
-                if (panel && panel.type === 'normal' && 
-                    (gameState.selectedCells.length === 0 || 
-                     gameState.selectedCells[0].color === panel.color)) {
-                    selectCell(x, y);
-                    lastSelectedCell = {x, y};
-                }
-            }
-        }
-
+    }
+}
         function endSelection() {
             if (!isSelecting || !gameState.isGameActive) return;
             
@@ -982,19 +984,19 @@
         }
 
         // タッチイベント処理
-        function handleTouch(e) {
-            e.preventDefault();
-            startSelection(e);
-        }
+function handleTouch(e) {
+    e.preventDefault();
+    startSelection({target: e.target.closest('.cell')});
+}
 
-        function handleTouchMove(e) {
-            e.preventDefault();
-            const touch = e.touches[0];
-            const element = document.elementFromPoint(touch.clientX, touch.clientY);
-            if (element && element.classList.contains('cell')) {
-                continueSelection({target: element});
-            }
-        }
+function handleTouchMove(e) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (element) {
+        continueSelection({target: element.closest('.cell')});
+    }
+}
 
         function handleTouchEnd(e) {
             e.preventDefault();
@@ -1953,4 +1955,5 @@
         initGame();
     </script>
 </body>
+
 </html>
