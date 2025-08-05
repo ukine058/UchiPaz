@@ -1,43 +1,4 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -163,6 +124,13 @@
             transition: all 0.2s;
             position: relative;
             overflow: hidden;
+        }
+
+        .cell img {
+            pointer-events: none;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
         .cell:hover {
@@ -681,7 +649,7 @@
                         </div>
                         <div class="form-group">
                             <label>効果値:</label>
-                            <input type="number" id="effectValue" min="1" value="2">
+                            <input type="number" id="effectValue" min="0" step="0.1" value="2">
                         </div>
                         <div id="colorBoostOptions" class="form-group" style="display:none;">
                             <label>対象色:</label>
@@ -943,7 +911,7 @@
                 
                 cell.innerHTML = '';
                 cell.className = 'cell'; // リセット
-                if (panel) {
+                if (panel && panel.type !== 'empty') {
                     cell.classList.add(`color-${panel.color}`);
                     if (panel.type === 'bomb') {
                         cell.classList.add('bomb');
@@ -953,8 +921,6 @@
                         if (panel.imageUrl) {
                             const img = document.createElement('img');
                             img.src = panel.imageUrl;
-                            img.style.width = '100%';
-                            img.style.height = '100%';
                             cell.appendChild(img);
                         } else {
                             cell.textContent = panel.emoji || colorEmojis[panel.color];
@@ -962,8 +928,6 @@
                     } else if (gameState.colorImages[panel.color]) {
                         const img = document.createElement('img');
                         img.src = gameState.colorImages[panel.color];
-                        img.style.width = '100%';
-                        img.style.height = '100%';
                         cell.appendChild(img);
                     } else {
                         cell.textContent = colorEmojis[panel.color];
@@ -1006,7 +970,7 @@
             
             isSelecting = true;
             gameState.selectedCells = [];
-            const cell = e.target.closest('.cell');
+            const cell = e.target.closest('.cell'); // 画像でも親のcellを取得
             if (!cell) return;
             
             const x = parseInt(cell.dataset.x);
@@ -1029,7 +993,7 @@
         function continueSelection(e) {
             if (!isSelecting || !gameState.isGameActive) return;
             
-            const cell = e.target.closest('.cell');
+            const cell = e.target.closest('.cell'); // 画像でも親のcellを取得
             if (!cell) return;
             
             const x = parseInt(cell.dataset.x);
@@ -1060,15 +1024,15 @@
         // タッチイベント処理
         function handleTouch(e) {
             e.preventDefault();
-            startSelection(e);
+            startSelection({target: e.target.closest('.cell')});
         }
 
         function handleTouchMove(e) {
             e.preventDefault();
             const touch = e.touches[0];
             const element = document.elementFromPoint(touch.clientX, touch.clientY);
-            if (element && element.classList.contains('cell')) {
-                continueSelection({target: element});
+            if (element) {
+                continueSelection({target: element.closest('.cell')});
             }
         }
 
@@ -1665,7 +1629,7 @@
 
             if (skill.specialEffect) {
                 skill.effectDuration = parseInt(document.getElementById('effectDuration').value);
-                skill.effectValue = parseInt(document.getElementById('effectValue').value);
+                skill.effectValue = parseFloat(document.getElementById('effectValue').value);
                 if (skill.specialEffect === 'colorBoost') {
                     skill.boostColor = document.getElementById('boostColor').value;
                 }
@@ -1793,7 +1757,7 @@
                 div.className = 'skill-item';
                 let effectText = skill.specialEffect ? 
                     (skill.specialEffect === 'scoreBoost' ? 
-                        `スコア${skill.effectValue}倍(${skill.effectDuration}ターン)` :
+                        `スコア${skill.effectValue.toFixed(1)}倍(${skill.effectDuration}ターン)` :
                         `${skill.boostColor}出現率UP(${skill.effectDuration}ターン)`) : 'なし';
                 div.innerHTML = `
                     <strong>${skill.name}</strong><br>
@@ -1835,7 +1799,7 @@
                 }
                 let effectText = skill.specialEffect ? 
                     (skill.specialEffect === 'scoreBoost' ? 
-                        `スコア${skill.effectValue}倍(${skill.effectDuration}ターン)` :
+                        `スコア${skill.effectValue.toFixed(1)}倍(${skill.effectDuration}ターン)` :
                         `${skill.boostColor}出現率UP(${skill.effectDuration}ターン)`) : 'なし';
                 div.innerHTML = `
                     <strong>${skill.name}</strong><br>
@@ -1958,12 +1922,11 @@
                         specialCoordinates: [],
                         specialEffect: 'scoreBoost',
                         effectDuration: 3,
-                        effectValue: 2,
+                        effectValue: 2.0,
                         iconUrl: '',
                         cutsceneUrl: ''
                     }
                 ];
-                gameState.specialPanels = [];
                 gameState.activeDeck = gameState.skills.slice(0, 2);
                 gameState.colorImages = {
                     red: null,
