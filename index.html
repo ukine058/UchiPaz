@@ -1,4 +1,43 @@
-<!DOCTYPE html>
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -90,6 +129,19 @@
             border-radius: 15px;
             padding: 10px;
             backdrop-filter: blur(10px);
+            position: relative;
+        }
+
+        .effect-indicator {
+            width: 100%;
+            max-width: 350px;
+            margin: 10px auto 0;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            text-align: center;
         }
 
         .grid {
@@ -175,7 +227,7 @@
         @keyframes slideInOut {
             0% { transform: translateX(100%); opacity: 0; }
             10% { transform: translateX(0); opacity: 1; }
-            90% { transform: translateX(0); opacity: 1; }
+            70% { transform: translateX(0); opacity: 1; }
             100% { transform: translateX(-100%); opacity: 0; }
         }
 
@@ -418,7 +470,7 @@
             max-width: 80%;
             max-height: 80%;
             border-radius: 15px;
-            animation: slideInOut 1.5s ease-out forwards;
+            animation: slideInOut 1.2s ease-out forwards;
         }
 
         .file-input-wrapper {
@@ -447,12 +499,6 @@
             max-height: 100px;
             margin-top: 10px;
             border-radius: 5px;
-        }
-        .cell img {
-            pointer-events: none; /* 画像がクリック/タッチイベントを吸収しないように */
-            width: 100%;
-            height: 100%;
-            object-fit: cover; /* 画像がセルにフィットするように */
         }
 
         @media (max-width: 480px) {
@@ -492,6 +538,7 @@
                 <!-- ゲームボードがここに生成される -->
             </div>
         </div>
+        <div id="effectIndicator" class="effect-indicator" style="display:none;"></div>
     </div>
 
     <button class="menu-button" onclick="openModal()">⚙️</button>
@@ -560,13 +607,14 @@
                     <div class="form-group">
                         <label>消去方法:</label>
                         <select id="clearType" onchange="toggleClearOptions()">
+                            <option value="none">なし</option>
                             <option value="coordinates">座標指定</option>
                             <option value="color">色消去</option>
                             <option value="random">ランダム消去</option>
                         </select>
                     </div>
                     
-                    <div id="coordinatesSection" class="form-group">
+                    <div id="coordinatesSection" class="form-group" style="display:none;">
                         <label>消去座標 (x,y):</label>
                         <div id="clearCoordinates">
                             <div class="coordinate-input">
@@ -589,12 +637,12 @@
                             <option value="orange">オレンジ</option>
                         </select>
                         <label>消去個数:</label>
-                        <input type="number" id="clearColorCount" min="1" value="5">
+                        <input type="number" id="clearColorCount" min="0" value="5">
                     </div>
                     
                     <div id="randomClearSection" class="form-group" style="display:none;">
                         <label>ランダム消去個数:</label>
-                        <input type="number" id="randomClearCount" min="1" value="10">
+                        <input type="number" id="randomClearCount" min="0" value="10">
                     </div>
                     
                     <div class="form-group">
@@ -833,6 +881,7 @@
             updateSkillButtons();
             updateSpecialPanelOptions();
             fillBoard();
+            updateEffectIndicator();
         }
 
         // ボード作成
@@ -885,93 +934,118 @@
         }
 
         // 表示更新
-function updateDisplay() {
-    const cells = document.querySelectorAll('.cell');
-    cells.forEach(cell => {
-        const x = parseInt(cell.dataset.x);
-        const y = parseInt(cell.dataset.y);
-        const panel = gameState.board[y][x];
-        
-        cell.innerHTML = '';
-        cell.className = 'cell'; // リセット
-        if (panel && panel.type !== 'empty') {
-            cell.classList.add(`color-${panel.color}`);
-            if (panel.type === 'bomb') {
-                cell.classList.add('bomb');
-                cell.textContent = '💣';
-            } else if (panel.type === 'special') {
-                cell.classList.add('special');
-                if (panel.imageUrl) {
-                    const img = document.createElement('img');
-                    img.src = panel.imageUrl;
-                    cell.appendChild(img);
-                } else {
-                    cell.textContent = panel.emoji || colorEmojis[panel.color];
+        function updateDisplay() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                const x = parseInt(cell.dataset.x);
+                const y = parseInt(cell.dataset.y);
+                const panel = gameState.board[y][x];
+                
+                cell.innerHTML = '';
+                cell.className = 'cell'; // リセット
+                if (panel) {
+                    cell.classList.add(`color-${panel.color}`);
+                    if (panel.type === 'bomb') {
+                        cell.classList.add('bomb');
+                        cell.textContent = '💣';
+                    } else if (panel.type === 'special') {
+                        cell.classList.add('special');
+                        if (panel.imageUrl) {
+                            const img = document.createElement('img');
+                            img.src = panel.imageUrl;
+                            img.style.width = '100%';
+                            img.style.height = '100%';
+                            cell.appendChild(img);
+                        } else {
+                            cell.textContent = panel.emoji || colorEmojis[panel.color];
+                        }
+                    } else if (gameState.colorImages[panel.color]) {
+                        const img = document.createElement('img');
+                        img.src = gameState.colorImages[panel.color];
+                        img.style.width = '100%';
+                        img.style.height = '100%';
+                        cell.appendChild(img);
+                    } else {
+                        cell.textContent = colorEmojis[panel.color];
+                    }
                 }
-            } else if (gameState.colorImages[panel.color]) {
-                const img = document.createElement('img');
-                img.src = gameState.colorImages[panel.color];
-                cell.appendChild(img);
+            });
+            
+            document.getElementById('score').textContent = gameState.score;
+            document.getElementById('time').textContent = gameState.timeLeft;
+            document.getElementById('chain').textContent = gameState.chain;
+            updateEffectIndicator();
+        }
+
+        // 特殊効果インジケーター更新
+        function updateEffectIndicator() {
+            const indicator = document.getElementById('effectIndicator');
+            const effects = [];
+            
+            if (gameState.specialEffects.scoreBoost) {
+                effects.push(`スコア${gameState.specialEffects.scoreBoost.multiplier}倍 (${gameState.specialEffects.scoreBoost.duration}ターン)`);
+            }
+            if (gameState.specialEffects.colorBoost) {
+                effects.push(`${gameState.specialEffects.colorBoost.color}出現率UP (${gameState.specialEffects.colorBoost.duration}ターン)`);
+            }
+            
+            if (effects.length > 0) {
+                indicator.textContent = effects.join(', ');
+                indicator.style.display = 'block';
             } else {
-                cell.textContent = colorEmojis[panel.color];
+                indicator.style.display = 'none';
             }
         }
-    });
-    
-    document.getElementById('score').textContent = gameState.score;
-    document.getElementById('time').textContent = gameState.timeLeft;
-    document.getElementById('chain').textContent = gameState.chain;
-}
 
         // セル選択処理
         let isSelecting = false;
         let lastSelectedCell = null;
 
-// セル選択処理
-function startSelection(e) {
-    if (!gameState.isGameActive) return;
-    
-    isSelecting = true;
-    gameState.selectedCells = [];
-    const cell = e.target.closest('.cell'); // 画像でも親のcellを取得
-    if (!cell) return;
-    
-    const x = parseInt(cell.dataset.x);
-    const y = parseInt(cell.dataset.y);
-    
-    if (gameState.board[y][x] && gameState.board[y][x].type === 'bomb') {
-        explodeBomb(x, y);
-        return;
-    }
-    
-    if (gameState.board[y][x] && gameState.board[y][x].type === 'special') {
-        handleSpecialPanelTap(x, y);
-        return;
-    }
-    
-    selectCell(x, y);
-    lastSelectedCell = {x, y};
-}
-
-function continueSelection(e) {
-    if (!isSelecting || !gameState.isGameActive) return;
-    
-    const cell = e.target.closest('.cell'); // 画像でも親のcellを取得
-    if (!cell) return;
-    
-    const x = parseInt(cell.dataset.x);
-    const y = parseInt(cell.dataset.y);
-    
-    if (lastSelectedCell && isAdjacent(lastSelectedCell.x, lastSelectedCell.y, x, y)) {
-        const panel = gameState.board[y][x];
-        if (panel && panel.type === 'normal' && 
-            (gameState.selectedCells.length === 0 || 
-             gameState.selectedCells[0].color === panel.color)) {
+        function startSelection(e) {
+            if (!gameState.isGameActive) return;
+            
+            isSelecting = true;
+            gameState.selectedCells = [];
+            const cell = e.target.closest('.cell');
+            if (!cell) return;
+            
+            const x = parseInt(cell.dataset.x);
+            const y = parseInt(cell.dataset.y);
+            
+            if (gameState.board[y][x] && gameState.board[y][x].type === 'bomb') {
+                explodeBomb(x, y);
+                return;
+            }
+            
+            if (gameState.board[y][x] && gameState.board[y][x].type === 'special') {
+                handleSpecialPanelTap(x, y);
+                return;
+            }
+            
             selectCell(x, y);
             lastSelectedCell = {x, y};
         }
-    }
-}
+
+        function continueSelection(e) {
+            if (!isSelecting || !gameState.isGameActive) return;
+            
+            const cell = e.target.closest('.cell');
+            if (!cell) return;
+            
+            const x = parseInt(cell.dataset.x);
+            const y = parseInt(cell.dataset.y);
+            
+            if (lastSelectedCell && isAdjacent(lastSelectedCell.x, lastSelectedCell.y, x, y)) {
+                const panel = gameState.board[y][x];
+                if (panel && panel.type === 'normal' && 
+                    (gameState.selectedCells.length === 0 || 
+                     gameState.selectedCells[0].color === panel.color)) {
+                    selectCell(x, y);
+                    lastSelectedCell = {x, y};
+                }
+            }
+        }
+
         function endSelection() {
             if (!isSelecting || !gameState.isGameActive) return;
             
@@ -984,19 +1058,19 @@ function continueSelection(e) {
         }
 
         // タッチイベント処理
-function handleTouch(e) {
-    e.preventDefault();
-    startSelection({target: e.target.closest('.cell')});
-}
+        function handleTouch(e) {
+            e.preventDefault();
+            startSelection(e);
+        }
 
-function handleTouchMove(e) {
-    e.preventDefault();
-    const touch = e.touches[0];
-    const element = document.elementFromPoint(touch.clientX, touch.clientY);
-    if (element) {
-        continueSelection({target: element.closest('.cell')});
-    }
-}
+        function handleTouchMove(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const element = document.elementFromPoint(touch.clientX, touch.clientY);
+            if (element && element.classList.contains('cell')) {
+                continueSelection({target: element});
+            }
+        }
 
         function handleTouchEnd(e) {
             e.preventDefault();
@@ -1036,27 +1110,16 @@ function handleTouchMove(e) {
             const chainLength = gameState.selectedCells.length;
             gameState.chain = chainLength;
             
-            const specialPanelsToTrigger = [];
-            gameState.selectedCells.forEach(({x, y}) => {
-                if (gameState.board[y][x].type === 'special') {
-                    specialPanelsToTrigger.push({x, y});
-                } else {
-                    createParticles(x, y);
-                }
-            });
+            const removedColors = processRemovePanels(gameState.selectedCells);
             
             setTimeout(() => {
-                gameState.selectedCells.forEach(({x, y}) => {
-                    const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
-                    cell.classList.add('removing');
-                    gameState.board[y][x] = {type: 'empty'};
-                });
-                
                 const baseScore = chainLength * 100;
                 const multiplier = gameState.specialEffects.scoreBoost ? gameState.specialEffects.scoreBoost.multiplier : 1;
                 gameState.score += Math.floor(baseScore * multiplier);
                 
-                updateSkillProgress(gameState.selectedCells[0].color, chainLength);
+                Object.entries(removedColors).forEach(([color, count]) => {
+                    updateSkillProgress(color, count);
+                });
                 
                 if (chainLength >= 6) {
                     const centerCell = gameState.selectedCells[Math.floor(chainLength / 2)];
@@ -1069,10 +1132,6 @@ function handleTouchMove(e) {
                     }, 300);
                 }
                 
-                specialPanelsToTrigger.forEach(({x, y}) => {
-                    handleSpecialPanelTap(x, y);
-                });
-                
                 updateSpecialEffects();
                 
                 setTimeout(() => {
@@ -1081,6 +1140,54 @@ function handleTouchMove(e) {
                     clearSelection();
                 }, 500);
             }, 300);
+        }
+
+        // パネル削除処理
+        function processRemovePanels(panels) {
+            const removedColors = {};
+            const toProcess = [...panels];
+            const processed = new Set();
+            
+            while (toProcess.length > 0) {
+                const {x, y} = toProcess.shift();
+                if (processed.has(`${x},${y}`)) continue;
+                processed.add(`${x},${y}`);
+                
+                const panel = gameState.board[y][x];
+                if (!panel || panel.type === 'empty') continue;
+                
+                createParticles(x, y);
+                const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+                cell.classList.add('removing');
+                
+                if (panel.type === 'special' && panel.clearPattern) {
+                    panel.clearPattern.forEach(({x: dx, y: dy}) => {
+                        const nx = x + dx;
+                        const ny = y + dy;
+                        if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && !processed.has(`${nx},${ny}`)) {
+                            toProcess.push({x: nx, y: ny});
+                        }
+                    });
+                } else if (panel.type === 'bomb') {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        for (let dx = -1; dx <= 1; dx++) {
+                            const nx = x + dx;
+                            const ny = y + dy;
+                            if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && !processed.has(`${nx},${ny}`)) {
+                                toProcess.push({x: nx, y: ny});
+                            }
+                        }
+                    }
+                }
+                
+                if (panel.color) {
+                    removedColors[panel.color] = (removedColors[panel.color] || 0) + 1;
+                }
+                
+                gameState.board[y][x] = {type: 'empty'};
+            }
+            
+            return removedColors;
         }
 
         // パーティクル生成
@@ -1120,35 +1227,23 @@ function handleTouchMove(e) {
         // 爆弾爆発
         function explodeBomb(x, y) {
             const toRemove = [];
-            const specialPanelsToTrigger = [];
-            
             for (let dy = -1; dy <= 1; dy++) {
                 for (let dx = -1; dx <= 1; dx++) {
                     const nx = x + dx;
                     const ny = y + dy;
                     if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10) {
-                        if (gameState.board[ny][nx] && gameState.board[ny][nx].type === 'special') {
-                            specialPanelsToTrigger.push({x: nx, y: ny});
-                        } else {
-                            toRemove.push({x: nx, y: ny});
-                        }
+                        toRemove.push({x: nx, y: ny});
                     }
                 }
             }
             
-            toRemove.forEach(({x, y}) => createParticles(x, y));
+            const removedColors = processRemovePanels(toRemove);
             
             setTimeout(() => {
-                toRemove.forEach(({x, y}) => {
-                    const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
-                    cell.classList.add('removing');
-                    gameState.board[y][x] = {type: 'empty'};
-                });
-                
                 gameState.score += toRemove.length * 50;
                 
-                specialPanelsToTrigger.forEach(({x, y}) => {
-                    handleSpecialPanelTap(x, y);
+                Object.entries(removedColors).forEach(([color, count]) => {
+                    updateSkillProgress(color, count);
                 });
                 
                 setTimeout(() => {
@@ -1226,39 +1321,30 @@ function handleTouchMove(e) {
                 }, 1000);
                 
                 updateSkillButtons();
-            }, skill.cutsceneUrl ? 1500 : 0);
+            }, skill.cutsceneUrl ? 1200 : 0);
         }
 
         // スキル効果実行
         function executeSkillEffect(skill) {
             const toRemove = [];
-            const specialPanelsToTrigger = [];
             
-            if (skill.clearType === 'coordinates') {
+            if (skill.clearType === 'coordinates' && skill.clearCoordinates) {
                 skill.clearCoordinates.forEach(({x, y}) => {
                     if (x >= 0 && x < 10 && y >= 0 && y < 10 && gameState.board[y][x]) {
-                        if (gameState.board[y][x].type === 'special') {
-                            specialPanelsToTrigger.push({x, y});
-                        } else {
-                            toRemove.push({x, y});
-                        }
+                        toRemove.push({x, y});
                     }
                 });
-            } else if (skill.clearType === 'color') {
+            } else if (skill.clearType === 'color' && skill.clearColorCount > 0) {
                 let count = 0;
                 for (let y = 0; y < 10 && count < skill.clearColorCount; y++) {
                     for (let x = 0; x < 10 && count < skill.clearColorCount; x++) {
                         if (gameState.board[y][x] && gameState.board[y][x].color === skill.clearColor) {
-                            if (gameState.board[y][x].type === 'special') {
-                                specialPanelsToTrigger.push({x, y});
-                            } else {
-                                toRemove.push({x, y});
-                            }
+                            toRemove.push({x, y});
                             count++;
                         }
                     }
                 }
-            } else if (skill.clearType === 'random') {
+            } else if (skill.clearType === 'random' && skill.randomClearCount > 0) {
                 const allCells = [];
                 for (let y = 0; y < 10; y++) {
                     for (let x = 0; x < 10; x++) {
@@ -1270,66 +1356,53 @@ function handleTouchMove(e) {
                 
                 for (let i = 0; i < Math.min(skill.randomClearCount, allCells.length); i++) {
                     const randomIndex = Math.floor(Math.random() * allCells.length);
-                    const cell = allCells.splice(randomIndex, 1)[0];
-                    if (gameState.board[cell.y][cell.x].type === 'special') {
-                        specialPanelsToTrigger.push(cell);
-                    } else {
-                        toRemove.push(cell);
-                    }
+                    toRemove.push(allCells.splice(randomIndex, 1)[0]);
                 }
             }
             
-            if (toRemove.length > 0) {
-                toRemove.forEach(({x, y}) => createParticles(x, y));
+            const removedColors = processRemovePanels(toRemove);
+            
+            setTimeout(() => {
+                gameState.score += toRemove.length * 100;
+                
+                Object.entries(removedColors).forEach(([color, count]) => {
+                    updateSkillProgress(color, count);
+                });
                 
                 setTimeout(() => {
-                    toRemove.forEach(({x, y}) => {
-                        const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
-                        cell.classList.add('removing');
-                        gameState.board[y][x] = {type: 'empty'};
-                    });
+                    dropPanels();
                     
-                    gameState.score += toRemove.length * 100;
-                    
-                    specialPanelsToTrigger.forEach(({x, y}) => {
-                        handleSpecialPanelTap(x, y);
-                    });
-                    
-                    setTimeout(() => {
-                        dropPanels();
-                        
-                        if (skill.specialPanel && skill.specialCoordinates) {
-                            skill.specialCoordinates.forEach(({x, y}) => {
-                                if (x >= 0 && x < 10 && y >= 0 && y < 10) {
-                                    if (skill.specialPanel === 'bomb') {
+                    if (skill.specialPanel && skill.specialCoordinates) {
+                        skill.specialCoordinates.forEach(({x, y}) => {
+                            if (x >= 0 && x < 10 && y >= 0 && y < 10) {
+                                if (skill.specialPanel === 'bomb') {
+                                    gameState.board[y][x] = {
+                                        type: 'bomb',
+                                        color: 'orange'
+                                    };
+                                } else {
+                                    const customPanel = gameState.specialPanels.find(p => p.name === skill.specialPanel);
+                                    if (customPanel) {
                                         gameState.board[y][x] = {
-                                            type: 'bomb',
-                                            color: 'orange'
+                                            type: 'special',
+                                            color: customPanel.color,
+                                            emoji: customPanel.emoji,
+                                            clearPattern: customPanel.clearCoordinates,
+                                            imageUrl: customPanel.imageUrl
                                         };
-                                    } else {
-                                        const customPanel = gameState.specialPanels.find(p => p.name === skill.specialPanel);
-                                        if (customPanel) {
-                                            gameState.board[y][x] = {
-                                                type: 'special',
-                                                color: customPanel.color,
-                                                emoji: customPanel.emoji,
-                                                clearPattern: customPanel.clearCoordinates,
-                                                imageUrl: customPanel.imageUrl
-                                            };
-                                        }
                                     }
                                 }
-                            });
-                        }
-                        
-                        fillBoard();
-                    }, 500);
-                }, 300);
-            }
-            
-            if (skill.specialEffect) {
-                applySpecialEffect(skill);
-            }
+                            }
+                        });
+                    }
+                    
+                    fillBoard();
+                }, 500);
+                
+                if (skill.specialEffect) {
+                    applySpecialEffect(skill);
+                }
+            }, 300);
         }
 
         // 特殊効果適用
@@ -1345,6 +1418,7 @@ function handleTouchMove(e) {
                     duration: skill.effectDuration
                 };
             }
+            updateEffectIndicator();
         }
 
         // 特殊効果更新
@@ -1357,6 +1431,7 @@ function handleTouchMove(e) {
                     }
                 }
             });
+            updateEffectIndicator();
         }
 
         // カットシーン表示
@@ -1368,7 +1443,7 @@ function handleTouchMove(e) {
             
             setTimeout(() => {
                 cutscene.style.display = 'none';
-            }, 1500);
+            }, 1200);
         }
 
         // ゲーム開始
@@ -1574,9 +1649,9 @@ function handleTouchMove(e) {
                 });
             } else if (skill.clearType === 'color') {
                 skill.clearColor = document.getElementById('clearColor').value;
-                skill.clearColorCount = parseInt(document.getElementById('clearColorCount').value);
+                skill.clearColorCount = parseInt(document.getElementById('clearColorCount').value) || 0;
             } else if (skill.clearType === 'random') {
-                skill.randomClearCount = parseInt(document.getElementById('randomClearCount').value);
+                skill.randomClearCount = parseInt(document.getElementById('randomClearCount').value) || 0;
             }
 
             skill.specialCoordinates = [];
@@ -1716,10 +1791,15 @@ function handleTouchMove(e) {
             gameState.skills.forEach((skill, index) => {
                 const div = document.createElement('div');
                 div.className = 'skill-item';
+                let effectText = skill.specialEffect ? 
+                    (skill.specialEffect === 'scoreBoost' ? 
+                        `スコア${skill.effectValue}倍(${skill.effectDuration}ターン)` :
+                        `${skill.boostColor}出現率UP(${skill.effectDuration}ターン)`) : 'なし';
                 div.innerHTML = `
                     <strong>${skill.name}</strong><br>
                     <small>必要: ${skill.requiredColor} ${skill.requiredCount}個</small><br>
-                    <small>効果: ${skill.clearType}</small>
+                    <small>効果: ${skill.clearType}</small><br>
+                    <small>特殊効果: ${effectText}</small>
                     <button class="button" onclick="deleteSkill(${index})" style="float: right; padding: 2px 8px;">削除</button>
                 `;
                 list.appendChild(div);
@@ -1753,10 +1833,15 @@ function handleTouchMove(e) {
                 if (gameState.activeDeck.some(s => s.name === skill.name)) {
                     div.classList.add('selected');
                 }
+                let effectText = skill.specialEffect ? 
+                    (skill.specialEffect === 'scoreBoost' ? 
+                        `スコア${skill.effectValue}倍(${skill.effectDuration}ターン)` :
+                        `${skill.boostColor}出現率UP(${skill.effectDuration}ターン)`) : 'なし';
                 div.innerHTML = `
                     <strong>${skill.name}</strong><br>
                     <small>必要: ${skill.requiredColor} ${skill.requiredCount}個</small><br>
-                    <small>効果: ${skill.clearType}</small>
+                    <small>効果: ${skill.clearType}</small><br>
+                    <small>特殊効果: ${effectText}</small>
                 `;
                 div.onclick = () => toggleDeckSkill(skill, div);
                 list.appendChild(div);
@@ -1896,7 +1981,6 @@ function handleTouchMove(e) {
             const panel = gameState.board[y][x];
             if (panel.type === 'special' && panel.clearPattern) {
                 const toRemove = [];
-                
                 panel.clearPattern.forEach(({x: dx, y: dy}) => {
                     const nx = x + dx;
                     const ny = y + dy;
@@ -1905,16 +1989,14 @@ function handleTouchMove(e) {
                     }
                 });
                 
-                toRemove.forEach(({x, y}) => createParticles(x, y));
+                const removedColors = processRemovePanels(toRemove);
                 
                 setTimeout(() => {
-                    toRemove.forEach(({x, y}) => {
-                        const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
-                        cell.classList.add('removing');
-                        gameState.board[y][x] = {type: 'empty'};
-                    });
-                    
                     gameState.score += toRemove.length * 80;
+                    
+                    Object.entries(removedColors).forEach(([color, count]) => {
+                        updateSkillProgress(color, count);
+                    });
                     
                     setTimeout(() => {
                         dropPanels();
@@ -1955,5 +2037,4 @@ function handleTouchMove(e) {
         initGame();
     </script>
 </body>
-
 </html>
