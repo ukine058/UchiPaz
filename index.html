@@ -1079,7 +1079,7 @@
             
             setTimeout(() => {
                 const baseScore = chainLength * 95;
-                const bonusScore = Math.pow(chainLength, 1.1) * 5 ;
+                const bonusScore = Math.pow(chainLength, 1.2) * 5 ;
                 const multiplier = gameState.specialEffects.scoreBoost ? gameState.specialEffects.scoreBoost.multiplier : 1;
                 gameState.score += Math.floor((baseScore + bonusScore) * multiplier);
                 
@@ -1206,8 +1206,8 @@
             const removedColors = processRemovePanels(toRemove);
             
             setTimeout(() => {
-                const baseScore = toRemove.length * 50;
-                const bonusScore = Math.pow(toRemove.length, 2) * 10;
+                const baseScore = toRemove * 95;
+                const bonusScore = Math.pow(toRemove, 1.2) * 5 ;
                 const multiplier = gameState.specialEffects.scoreBoost ? gameState.specialEffects.scoreBoost.multiplier : 1;
                 gameState.score += Math.floor((baseScore + bonusScore) * multiplier);
                 
@@ -1334,8 +1334,8 @@
             const removedColors = processRemovePanels(toRemove);
             
             setTimeout(() => {
-                const baseScore = toRemove.length * 100;
-                const bonusScore = Math.pow(toRemove.length, 2) * 10;
+                const baseScore = toRemove * 95;
+                const bonusScore = Math.pow(toRemove, 1.2) * 5 ;
                 const multiplier = gameState.specialEffects.scoreBoost ? gameState.specialEffects.scoreBoost.multiplier : 1;
                 gameState.score += Math.floor((baseScore + bonusScore) * multiplier);
                 
@@ -1983,8 +1983,8 @@
                 const removedColors = processRemovePanels(toRemove);
                 
                 setTimeout(() => {
-                    const baseScore = toRemove.length * 80;
-                    const bonusScore = Math.pow(toRemove.length, 2) * 10;
+                    const baseScore = toRemove * 95;
+                    const bonusScore = Math.pow(toRemove, 1.2) * 5 ;
                     const multiplier = gameState.specialEffects.scoreBoost ? gameState.specialEffects.scoreBoost.multiplier : 1;
                     gameState.score += Math.floor((baseScore + bonusScore) * multiplier);
                     
