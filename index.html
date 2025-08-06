@@ -1078,8 +1078,8 @@
             const removedColors = processRemovePanels(gameState.selectedCells);
             
             setTimeout(() => {
-                const baseScore = chainLength * 80;
-                const bonusScore = Math.pow(chainLength, 1.1) * 10 ;
+                const baseScore = chainLength * 100;
+                const bonusScore = Math.pow(chainLength, 1.2) * 5 ;
                 const multiplier = gameState.specialEffects.scoreBoost ? gameState.specialEffects.scoreBoost.multiplier : 1;
                 gameState.score += Math.floor((baseScore + bonusScore) * multiplier);
                 
