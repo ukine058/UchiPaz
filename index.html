@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>カスタムパズル</title>
+    <title>UchiPaz</title>
     <style>
         * {
             margin: 0;
@@ -829,7 +829,8 @@
                 purple: null,
                 orange: null
             },
-            isTimerRunning: true
+            isTimerRunning: true,
+            pendingActions: []
         };
 
         // 色定義
@@ -971,19 +972,19 @@
             
             isSelecting = true;
             gameState.selectedCells = [];
-            const cell = e.target.closest('.cell'); // 画像でも親のcellを取得
+            const cell = e.target.closest('.cell');
             if (!cell) return;
             
             const x = parseInt(cell.dataset.x);
             const y = parseInt(cell.dataset.y);
             
             if (gameState.board[y][x] && gameState.board[y][x].type === 'bomb') {
-                explodeBomb(x, y);
+                queueAction(() => explodeBomb(x, y));
                 return;
             }
             
             if (gameState.board[y][x] && gameState.board[y][x].type === 'special') {
-                handleSpecialPanelTap(x, y);
+                queueAction(() => handleSpecialPanelTap(x, y));
                 return;
             }
             
@@ -994,7 +995,7 @@
         function continueSelection(e) {
             if (!isSelecting || !gameState.isGameActive) return;
             
-            const cell = e.target.closest('.cell'); // 画像でも親のcellを取得
+            const cell = e.target.closest('.cell');
             if (!cell) return;
             
             const x = parseInt(cell.dataset.x);
@@ -1016,7 +1017,7 @@
             
             isSelecting = false;
             if (gameState.selectedCells.length >= 3) {
-                processChain();
+                queueAction(processChain);
             } else {
                 clearSelection();
             }
@@ -1070,6 +1071,26 @@
             });
         }
 
+        // アクションキュー処理
+        function queueAction(action) {
+            gameState.pendingActions.push(action);
+            if (gameState.pendingActions.length === 1) {
+                processNextAction();
+            }
+        }
+
+        function processNextAction() {
+            if (gameState.pendingActions.length === 0) {
+                if (gameState.timeLeft <= 0 && gameState.isGameActive) {
+                    endGame();
+                }
+                return;
+            }
+
+            const action = gameState.pendingActions[0];
+            action();
+        }
+
         // チェーン処理
         function processChain() {
             const chainLength = gameState.selectedCells.length;
@@ -1079,7 +1100,7 @@
             
             setTimeout(() => {
                 const baseScore = chainLength * 95;
-                const bonusScore = Math.pow(chainLength, 1.2) * 5 ;
+                const bonusScore = Math.pow(chainLength, 1.2) * 5;
                 const multiplier = gameState.specialEffects.scoreBoost ? gameState.specialEffects.scoreBoost.multiplier : 1;
                 gameState.score += Math.floor((baseScore + bonusScore) * multiplier);
                 
@@ -1104,6 +1125,8 @@
                     dropPanels();
                     fillBoard();
                     clearSelection();
+                    gameState.pendingActions.shift();
+                    processNextAction();
                 }, 500);
             }, 300);
         }
@@ -1206,8 +1229,8 @@
             const removedColors = processRemovePanels(toRemove);
             
             setTimeout(() => {
-                const baseScore = toRemove * 95;
-                const bonusScore = Math.pow(toRemove, 1.2) * 5 ;
+                const baseScore = toRemove.length * 95;
+                const bonusScore = Math.pow(toRemove.length, 1.2) * 5;
                 const multiplier = gameState.specialEffects.scoreBoost ? gameState.specialEffects.scoreBoost.multiplier : 1;
                 gameState.score += Math.floor((baseScore + bonusScore) * multiplier);
                 
@@ -1220,6 +1243,8 @@
                 setTimeout(() => {
                     dropPanels();
                     fillBoard();
+                    gameState.pendingActions.shift();
+                    processNextAction();
                 }, 500);
             }, 300);
         }
@@ -1266,7 +1291,7 @@
                     button.style.textShadow = '0 0 2px black';
                 }
                 
-                button.onclick = () => useSkill(index);
+                button.onclick = () => queueAction(() => useSkill(index));
                 container.appendChild(button);
             });
         }
@@ -1289,6 +1314,8 @@
                 setTimeout(() => {
                     delete gameState.skillCooldowns[skillIndex];
                     updateSkillButtons();
+                    gameState.pendingActions.shift();
+                    processNextAction();
                 }, 1000);
                 
                 updateSkillButtons();
@@ -1334,8 +1361,8 @@
             const removedColors = processRemovePanels(toRemove);
             
             setTimeout(() => {
-                const baseScore = toRemove * 95;
-                const bonusScore = Math.pow(toRemove, 1.2) * 5 ;
+                const baseScore = toRemove.length * 95;
+                const bonusScore = Math.pow(toRemove.length, 1.2) * 5;
                 const multiplier = gameState.specialEffects.scoreBoost ? gameState.specialEffects.scoreBoost.multiplier : 1;
                 gameState.score += Math.floor((baseScore + bonusScore) * multiplier);
                 
@@ -1371,6 +1398,8 @@
                     }
                     
                     fillBoard();
+                    gameState.pendingActions.shift();
+                    processNextAction();
                 }, 500);
                 
                 if (skill.specialEffect) {
@@ -1423,17 +1452,20 @@
             setTimeout(() => {
                 cutscene.style.display = 'none';
                 if (!gameState.isTimerRunning && gameState.isGameActive) {
-                    gameState.gameTimer = setInterval(() => {
-                        gameState.timeLeft--;
-                        updateDisplay();
-                        
-                        if (gameState.timeLeft <= 0) {
-                            setTimeout(endGame, 500); // 0.5秒待機
-                        }
-                    }, 1000);
+                    gameState.gameTimer = setInterval(updateTimer, 1000);
                     gameState.isTimerRunning = true;
                 }
             }, 1200);
+        }
+
+        // タイマー更新
+        function updateTimer() {
+            gameState.timeLeft--;
+            updateDisplay();
+            
+            if (gameState.timeLeft <= 0 && gameState.pendingActions.length === 0) {
+                endGame();
+            }
         }
 
         // ゲーム開始
@@ -1445,17 +1477,11 @@
             gameState.skillProgress = {};
             gameState.skillCooldowns = {};
             gameState.specialEffects = {};
+            gameState.pendingActions = [];
             
             document.getElementById('startButton').style.display = 'none';
             
-            gameState.gameTimer = setInterval(() => {
-                gameState.timeLeft--;
-                updateDisplay();
-                
-                if (gameState.timeLeft <= 0) {
-                    setTimeout(endGame, 500); // 0.5秒待機
-                }
-            }, 1000);
+            gameState.gameTimer = setInterval(updateTimer, 1000);
             gameState.isTimerRunning = true;
             
             fillBoard();
@@ -1488,6 +1514,7 @@
             gameState.skillProgress = {};
             gameState.skillCooldowns = {};
             gameState.specialEffects = {};
+            gameState.pendingActions = [];
             
             fillBoard();
             updateSkillButtons();
@@ -1983,8 +2010,8 @@
                 const removedColors = processRemovePanels(toRemove);
                 
                 setTimeout(() => {
-                    const baseScore = toRemove * 95;
-                    const bonusScore = Math.pow(toRemove, 1.2) * 5 ;
+                    const baseScore = toRemove.length * 95;
+                    const bonusScore = Math.pow(toRemove.length, 1.2) * 5;
                     const multiplier = gameState.specialEffects.scoreBoost ? gameState.specialEffects.scoreBoost.multiplier : 1;
                     gameState.score += Math.floor((baseScore + bonusScore) * multiplier);
                     
@@ -1997,6 +2024,8 @@
                     setTimeout(() => {
                         dropPanels();
                         fillBoard();
+                        gameState.pendingActions.shift();
+                        processNextAction();
                     }, 500);
                 }, 300);
             }
