@@ -1079,7 +1079,7 @@
             
             setTimeout(() => {
                 const baseScore = chainLength * 95;
-                const bonusScore = Math.pow(chainLength, 1.2) * 5 ;
+                const bonusScore = Math.pow(chainLength, 1.1) * 5 ;
                 const multiplier = gameState.specialEffects.scoreBoost ? gameState.specialEffects.scoreBoost.multiplier : 1;
                 gameState.score += Math.floor((baseScore + bonusScore) * multiplier);
                 
