@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>カスタムパズル</title>
+    <title>カスタムツムツムパズル</title>
     <style>
         * {
             margin: 0;
@@ -828,7 +828,8 @@
                 yellow: null,
                 purple: null,
                 orange: null
-            }
+            },
+            isTimerRunning: true
         };
 
         // 色定義
@@ -1078,8 +1079,9 @@
             
             setTimeout(() => {
                 const baseScore = chainLength * 100;
+                const bonusScore = Math.pow(chainLength, 1.1) * 50 ;
                 const multiplier = gameState.specialEffects.scoreBoost ? gameState.specialEffects.scoreBoost.multiplier : 1;
-                gameState.score += Math.floor(baseScore * multiplier);
+                gameState.score += Math.floor((baseScore + bonusScore) * multiplier);
                 
                 Object.entries(removedColors).forEach(([color, count]) => {
                     updateSkillProgress(color, count);
@@ -1204,11 +1206,16 @@
             const removedColors = processRemovePanels(toRemove);
             
             setTimeout(() => {
-                gameState.score += toRemove.length * 50;
+                const baseScore = toRemove.length * 50;
+                const bonusScore = Math.pow(toRemove.length, 2) * 10;
+                const multiplier = gameState.specialEffects.scoreBoost ? gameState.specialEffects.scoreBoost.multiplier : 1;
+                gameState.score += Math.floor((baseScore + bonusScore) * multiplier);
                 
                 Object.entries(removedColors).forEach(([color, count]) => {
                     updateSkillProgress(color, count);
                 });
+                
+                updateSpecialEffects();
                 
                 setTimeout(() => {
                     dropPanels();
@@ -1327,7 +1334,10 @@
             const removedColors = processRemovePanels(toRemove);
             
             setTimeout(() => {
-                gameState.score += toRemove.length * 100;
+                const baseScore = toRemove.length * 100;
+                const bonusScore = Math.pow(toRemove.length, 2) * 10;
+                const multiplier = gameState.specialEffects.scoreBoost ? gameState.specialEffects.scoreBoost.multiplier : 1;
+                gameState.score += Math.floor((baseScore + bonusScore) * multiplier);
                 
                 Object.entries(removedColors).forEach(([color, count]) => {
                     updateSkillProgress(color, count);
@@ -1405,8 +1415,24 @@
             image.src = imageUrl;
             cutscene.style.display = 'flex';
             
+            if (gameState.isTimerRunning) {
+                clearInterval(gameState.gameTimer);
+                gameState.isTimerRunning = false;
+            }
+            
             setTimeout(() => {
                 cutscene.style.display = 'none';
+                if (!gameState.isTimerRunning && gameState.isGameActive) {
+                    gameState.gameTimer = setInterval(() => {
+                        gameState.timeLeft--;
+                        updateDisplay();
+                        
+                        if (gameState.timeLeft <= 0) {
+                            setTimeout(endGame, 500); // 0.5秒待機
+                        }
+                    }, 1000);
+                    gameState.isTimerRunning = true;
+                }
             }, 1200);
         }
 
@@ -1427,9 +1453,10 @@
                 updateDisplay();
                 
                 if (gameState.timeLeft <= 0) {
-                    endGame();
+                    setTimeout(endGame, 500); // 0.5秒待機
                 }
             }, 1000);
+            gameState.isTimerRunning = true;
             
             fillBoard();
             updateSkillButtons();
@@ -1439,6 +1466,7 @@
         function endGame() {
             gameState.isGameActive = false;
             clearInterval(gameState.gameTimer);
+            gameState.isTimerRunning = false;
             
             document.getElementById('finalScore').textContent = gameState.score;
             document.getElementById('gameOverModal').style.display = 'flex';
@@ -1955,11 +1983,16 @@
                 const removedColors = processRemovePanels(toRemove);
                 
                 setTimeout(() => {
-                    gameState.score += toRemove.length * 80;
+                    const baseScore = toRemove.length * 80;
+                    const bonusScore = Math.pow(toRemove.length, 2) * 10;
+                    const multiplier = gameState.specialEffects.scoreBoost ? gameState.specialEffects.scoreBoost.multiplier : 1;
+                    gameState.score += Math.floor((baseScore + bonusScore) * multiplier);
                     
                     Object.entries(removedColors).forEach(([color, count]) => {
                         updateSkillProgress(color, count);
                     });
+                    
+                    updateSpecialEffects();
                     
                     setTimeout(() => {
                         dropPanels();
