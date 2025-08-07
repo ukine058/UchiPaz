@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UchiPaz</title>
+    <title>CustomPuzzle</title>
     <style>
         * {
             margin: 0;
@@ -414,11 +414,11 @@
             max-width: 300px;
         }
 
-        .color-red { background: #ff6b6b; }
-        .color-blue { background: #4ecdc4; }
-        .color-green { background: #45b7d1; }
+        .color-red { background: #ff5274; }
+        .color-blue { background: #3d9bff; } /* より鮮やかな青 */
+        .color-green { background: #35e381; } /* より鮮やかな緑 */
         .color-yellow { background: #f9ca24; }
-        .color-purple { background: #a55eea; }
+        .color-purple { background: #be6cea; }
         .color-orange { background: #fd9644; }
 
         .cutscene {
@@ -488,7 +488,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🎮 カスタムパズル</h1>
+            <h1>🎮 CustomPuzzle</h1>
         </div>
         
         <div class="game-info">
@@ -829,6 +829,14 @@
                 purple: null,
                 orange: null
             },
+            colorWeights: {
+                red: 1,
+                blue: 1,
+                green: 1,
+                yellow: 1,
+                purple: 1,
+                orange: 1
+            },
             isTimerRunning: true,
             pendingActions: []
         };
@@ -879,20 +887,28 @@
             }
         }
 
+        // 重み付きランダム選択
+        function weightedRandomColor() {
+            const weights = colors.map(color => gameState.colorWeights[color]);
+            const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+            const random = Math.random() * totalWeight;
+            let sum = 0;
+            
+            for (let i = 0; i < colors.length; i++) {
+                sum += weights[i];
+                if (random <= sum) {
+                    return colors[i];
+                }
+            }
+            return colors[colors.length - 1]; // フォールバック
+        }
+
         // ボードを埋める
         function fillBoard() {
             for (let y = 0; y < 10; y++) {
                 for (let x = 0; x < 10; x++) {
                     if (!gameState.board[y][x] || gameState.board[y][x].type === 'empty') {
-                        const colorBoost = gameState.specialEffects.colorBoost;
-                        let color;
-                        
-                        if (colorBoost && Math.random() < 0.5) {
-                            color = colorBoost.color;
-                        } else {
-                            color = colors[Math.floor(Math.random() * colors.length)];
-                        }
-                        
+                        const color = weightedRandomColor();
                         gameState.board[y][x] = {
                             type: 'normal',
                             color: color
@@ -952,7 +968,9 @@
                 effects.push(`スコア${gameState.specialEffects.scoreBoost.multiplier}倍 (${gameState.specialEffects.scoreBoost.duration}ターン)`);
             }
             if (gameState.specialEffects.colorBoost) {
-                effects.push(`${gameState.specialEffects.colorBoost.color}出現率UP (${gameState.specialEffects.colorBoost.duration}ターン)`);
+                gameState.specialEffects.colorBoost.forEach(boost => {
+                    effects.push(`${boost.color}出現率${boost.multiplier.toFixed(1)}倍 (${boost.duration}ターン)`);
+                });
             }
             
             if (effects.length > 0) {
@@ -1416,18 +1434,49 @@
                     duration: skill.effectDuration
                 };
             } else if (skill.specialEffect === 'colorBoost') {
-                gameState.specialEffects.colorBoost = {
+                if (!gameState.specialEffects.colorBoost) {
+                    gameState.specialEffects.colorBoost = [];
+                }
+                gameState.specialEffects.colorBoost.push({
                     color: skill.boostColor,
+                    multiplier: skill.effectValue,
                     duration: skill.effectDuration
-                };
+                });
+                updateColorWeights();
             }
             updateEffectIndicator();
+        }
+
+        // 色重み更新
+        function updateColorWeights() {
+            // 基本重みをリセット
+            colors.forEach(color => {
+                gameState.colorWeights[color] = 1;
+            });
+            
+            // アクティブなcolorBoost効果を適用
+            if (gameState.specialEffects.colorBoost) {
+                gameState.specialEffects.colorBoost.forEach(boost => {
+                    if (boost.duration > 0) {
+                        gameState.colorWeights[boost.color] *= boost.multiplier;
+                    }
+                });
+            }
         }
 
         // 特殊効果更新
         function updateSpecialEffects() {
             Object.keys(gameState.specialEffects).forEach(effect => {
-                if (gameState.specialEffects[effect].duration > 0) {
+                if (effect === 'colorBoost') {
+                    gameState.specialEffects.colorBoost = gameState.specialEffects.colorBoost.filter(boost => {
+                        boost.duration--;
+                        return boost.duration > 0;
+                    });
+                    if (gameState.specialEffects.colorBoost.length === 0) {
+                        delete gameState.specialEffects.colorBoost;
+                    }
+                    updateColorWeights();
+                } else if (gameState.specialEffects[effect].duration > 0) {
                     gameState.specialEffects[effect].duration--;
                     if (gameState.specialEffects[effect].duration <= 0) {
                         delete gameState.specialEffects[effect];
@@ -1478,6 +1527,14 @@
             gameState.skillCooldowns = {};
             gameState.specialEffects = {};
             gameState.pendingActions = [];
+            gameState.colorWeights = {
+                red: 1,
+                blue: 1,
+                green: 1,
+                yellow: 1,
+                purple: 1,
+                orange: 1
+            };
             
             document.getElementById('startButton').style.display = 'none';
             
@@ -1515,6 +1572,14 @@
             gameState.skillCooldowns = {};
             gameState.specialEffects = {};
             gameState.pendingActions = [];
+            gameState.colorWeights = {
+                red: 1,
+                blue: 1,
+                green: 1,
+                yellow: 1,
+                purple: 1,
+                orange: 1
+            };
             
             fillBoard();
             updateSkillButtons();
@@ -1813,7 +1878,7 @@
                 let effectText = skill.specialEffect ? 
                     (skill.specialEffect === 'scoreBoost' ? 
                         `スコア${skill.effectValue.toFixed(1)}倍(${skill.effectDuration}ターン)` :
-                        `${skill.boostColor}出現率UP(${skill.effectDuration}ターン)`) : 'なし';
+                        `${skill.boostColor}出現率${skill.effectValue.toFixed(1)}倍(${skill.effectDuration}ターン)`) : 'なし';
                 div.innerHTML = `
                     <strong>${skill.name}</strong><br>
                     <small>必要: ${skill.requiredColor} ${skill.requiredCount}個</small><br>
@@ -1855,7 +1920,7 @@
                 let effectText = skill.specialEffect ? 
                     (skill.specialEffect === 'scoreBoost' ? 
                         `スコア${skill.effectValue.toFixed(1)}倍(${skill.effectDuration}ターン)` :
-                        `${skill.boostColor}出現率UP(${skill.effectDuration}ターン)`) : 'なし';
+                        `${skill.boostColor}出現率${skill.effectValue.toFixed(1)}倍(${skill.effectDuration}ターン)`) : 'なし';
                 div.innerHTML = `
                     <strong>${skill.name}</strong><br>
                     <small>必要: ${skill.requiredColor} ${skill.requiredCount}個</small><br>
@@ -1975,9 +2040,10 @@
                         ],
                         specialPanel: '',
                         specialCoordinates: [],
-                        specialEffect: 'scoreBoost',
+                        specialEffect: 'colorBoost',
                         effectDuration: 3,
-                        effectValue: 2.0,
+                        effectValue: 2.5,
+                        boostColor: 'blue',
                         iconUrl: '',
                         cutsceneUrl: ''
                     }
