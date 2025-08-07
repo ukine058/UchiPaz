@@ -303,35 +303,6 @@
             border-radius: 5px;
         }
 
-        .coordinate-input {
-            display: flex;
-            gap: 5px;
-            align-items: center;
-            margin-bottom: 5px;
-        }
-
-        .coordinate-input input {
-            width: 50px;
-        }
-
-        .add-coordinate {
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-
-        .remove-coordinate {
-            background: #f44336;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-
         .button {
             background: #667eea;
             color: white;
@@ -415,8 +386,8 @@
         }
 
         .color-red { background: #ff5274; }
-        .color-blue { background: #3d9bff; } /* より鮮やかな青 */
-        .color-green { background: #35e381; } /* より鮮やかな緑 */
+        .color-blue { background: #3d9bff; }
+        .color-green { background: #35e381; }
         .color-yellow { background: #f9ca24; }
         .color-purple { background: #be6cea; }
         .color-orange { background: #fd9644; }
@@ -469,6 +440,45 @@
             border-radius: 5px;
         }
 
+        .grid-selector {
+            display: grid;
+            gap: 2px;
+            margin-bottom: 10px;
+            background: #f0f0f0;
+            padding: 5px;
+            border-radius: 5px;
+        }
+
+        .grid-selector-10x10 {
+            grid-template-columns: repeat(10, 1fr);
+            max-width: 300px;
+        }
+
+        .grid-selector-19x19 {
+            grid-template-columns: repeat(19, 1fr);
+            max-width: 400px;
+        }
+
+        .grid-cell {
+            aspect-ratio: 1;
+            border: 1px solid #ccc;
+            background: #fff;
+            cursor: pointer;
+        }
+
+        .grid-cell.selected {
+            background: #667eea;
+        }
+
+        .grid-cell.center {
+            background: #ff6b6b;
+        }
+
+        .emoji-input {
+            font-size: 20px;
+            text-align: center;
+        }
+
         @media (max-width: 480px) {
             .container {
                 padding: 5px;
@@ -481,6 +491,15 @@
             
             .skill-button {
                 font-size: 9px;
+            }
+            
+            .grid-selector-19x19 {
+                max-width: 300px;
+            }
+            
+            .grid-cell {
+                min-width: 15px;
+                min-height: 15px;
             }
         }
     </style>
@@ -497,14 +516,10 @@
             <div>チェーン: <span id="chain">0</span></div>
         </div>
         
-        <div class="skills-container" id="skillsContainer">
-            <!-- スキルボタンがここに動的に生成される -->
-        </div>
+        <div class="skills-container" id="skillsContainer"></div>
         
         <div class="board">
-            <div class="grid" id="gameBoard">
-                <!-- ゲームボードがここに生成される -->
-            </div>
+            <div class="grid" id="gameBoard"></div>
         </div>
         <div id="effectIndicator" class="effect-indicator" style="display:none;"></div>
     </div>
@@ -512,7 +527,6 @@
     <button class="menu-button" onclick="openModal()">⚙️</button>
     <button class="start-button" id="startButton" onclick="startGame()">ゲーム開始</button>
 
-    <!-- メインモーダル -->
     <div id="mainModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -527,9 +541,8 @@
                 <button class="tab" onclick="showTab('colors')">色設定</button>
             </div>
             
-            <!-- スキル作成タブ -->
             <div id="skillsTab" class="tab-content active">
-                <h3>スキル作成</h3>
+                <h3 id="skillFormTitle">スキル作成</h3>
                 <form id="skillForm">
                     <div class="form-group">
                         <label>スキル名:</label>
@@ -537,11 +550,12 @@
                     </div>
                     
                     <div class="form-group">
-                        <label>アイコン画像:</label>
+                        <label>アイコン:</label>
                         <div class="file-input-wrapper">
-                            <span>ファイルを選択</span>
+                            <span>画像を選択</span>
                             <input type="file" id="skillIcon" accept="image/*" onchange="previewImage(this, 'skillIconPreview')">
                         </div>
+                        <input type="text" id="skillEmoji" class="emoji-input" placeholder="絵文字を入力" maxlength="4">
                         <img id="skillIconPreview" class="preview-image" style="display:none;">
                     </div>
                     
@@ -583,15 +597,8 @@
                     </div>
                     
                     <div id="coordinatesSection" class="form-group" style="display:none;">
-                        <label>消去座標 (x,y):</label>
-                        <div id="clearCoordinates">
-                            <div class="coordinate-input">
-                                <input type="number" placeholder="x" min="0" max="9">
-                                <input type="number" placeholder="y" min="0" max="9">
-                                <button type="button" class="remove-coordinate" onclick="removeCoordinate(this)">削除</button>
-                            </div>
-                        </div>
-                        <button type="button" class="add-coordinate" onclick="addClearCoordinate()">座標追加</button>
+                        <label>消去座標 (10×10):</label>
+                        <div id="clearGrid" class="grid-selector grid-selector-10x10"></div>
                     </div>
                     
                     <div id="colorClearSection" class="form-group" style="display:none;">
@@ -622,15 +629,8 @@
                     </div>
                     
                     <div class="form-group">
-                        <label>特殊パネル生成座標:</label>
-                        <div id="specialCoordinates">
-                            <div class="coordinate-input">
-                                <input type="number" placeholder="x" min="0" max="9">
-                                <input type="number" placeholder="y" min="0" max="9">
-                                <button type="button" class="remove-coordinate" onclick="removeCoordinate(this)">削除</button>
-                            </div>
-                        </div>
-                        <button type="button" class="add-coordinate" onclick="addSpecialCoordinate()">座標追加</button>
+                        <label>特殊パネル生成座標 (10×10):</label>
+                        <div id="specialGrid" class="grid-selector grid-selector-10x10"></div>
                     </div>
                     
                     <div class="form-group">
@@ -664,17 +664,14 @@
                         </div>
                     </div>
                     
-                    <button type="button" class="button" onclick="createSkill()">スキル作成</button>
+                    <button type="button" class="button" id="skillSubmitButton" onclick="createSkill()">スキル作成</button>
                 </form>
                 
-                <div class="skill-list" id="skillList">
-                    <!-- 作成されたスキルがここに表示される -->
-                </div>
+                <div class="skill-list" id="skillList"></div>
             </div>
             
-            <!-- 特殊パネル作成タブ -->
             <div id="panelsTab" class="tab-content">
-                <h3>特殊パネル作成</h3>
+                <h3 id="panelFormTitle">特殊パネル作成</h3>
                 <form id="panelForm">
                     <div class="form-group">
                         <label>パネル名:</label>
@@ -682,11 +679,12 @@
                     </div>
                     
                     <div class="form-group">
-                        <label>パネル画像:</label>
+                        <label>パネルアイコン:</label>
                         <div class="file-input-wrapper">
-                            <span>ファイルを選択</span>
+                            <span>画像を選択</span>
                             <input type="file" id="panelImage" accept="image/*" onchange="previewImage(this, 'panelImagePreview')">
                         </div>
+                        <input type="text" id="panelEmoji" class="emoji-input" placeholder="絵文字を入力" maxlength="4">
                         <img id="panelImagePreview" class="preview-image" style="display:none;">
                     </div>
                     
@@ -703,95 +701,87 @@
                     </div>
                     
                     <div class="form-group">
-                        <label>消去範囲:</label>
-                        <div id="panelClearCoordinates">
-                            <div class="coordinate-input">
-                                <input type="number" placeholder="x" min="-5" max="5">
-                                <input type="number" placeholder="y" min="-5" max="5">
-                                <button type="button" class="remove-coordinate" onclick="removeCoordinate(this)">削除</button>
-                            </div>
-                        </div>
-                        <button type="button" class="add-coordinate" onclick="addPanelCoordinate()">座標追加</button>
-                        <small>相対座標で指定（0,0が自分の位置）</small>
+                        <label>消去範囲 (19×19, 相対座標):</label>
+                        <div id="panelClearGrid" class="grid-selector grid-selector-19x19"></div>
+                        <small>中心が(0,0)の相対座標</small>
                     </div>
                     
-                    <button type="button" class="button" onclick="createPanel()">パネル作成</button>
+                    <button type="button" class="button" id="panelSubmitButton" onclick="createPanel()">パネル作成</button>
                 </form>
                 
-                <div class="panel-list" id="panelList">
-                    <!-- 作成されたパネルがここに表示される -->
-                </div>
+                <div class="panel-list" id="panelList"></div>
             </div>
             
-            <!-- デッキ構築タブ -->
             <div id="deckTab" class="tab-content">
                 <h3>デッキ構築</h3>
                 <p>使用するスキルを選択してください（最大4個）</p>
-                <div class="skill-list" id="deckSkillList">
-                    <!-- スキル選択リストがここに表示される -->
-                </div>
+                <div class="skill-list" id="deckSkillList"></div>
                 <button type="button" class="button" onclick="saveDeck()">デッキ保存</button>
             </div>
             
-            <!-- 色設定タブ -->
             <div id="colorsTab" class="tab-content">
-                <h3>色ごとの画像設定</h3>
+                <h3>色ごとの設定</h3>
                 <form id="colorForm">
                     <div class="form-group">
                         <label>赤:</label>
                         <div class="file-input-wrapper">
-                            <span>ファイルを選択</span>
+                            <span>画像を選択</span>
                             <input type="file" id="colorRedImage" accept="image/*" onchange="previewImage(this, 'colorRedPreview')">
                         </div>
+                        <input type="text" id="colorRedEmoji" class="emoji-input" placeholder="絵文字を入力" maxlength="4">
                         <img id="colorRedPreview" class="preview-image" style="display:none;">
                     </div>
                     <div class="form-group">
                         <label>青:</label>
                         <div class="file-input-wrapper">
-                            <span>ファイルを選択</span>
+                            <span>画像を選択</span>
                             <input type="file" id="colorBlueImage" accept="image/*" onchange="previewImage(this, 'colorBluePreview')">
                         </div>
+                        <input type="text" id="colorBlueEmoji" class="emoji-input" placeholder="絵文字を入力" maxlength="4">
                         <img id="colorBluePreview" class="preview-image" style="display:none;">
                     </div>
                     <div class="form-group">
                         <label>緑:</label>
                         <div class="file-input-wrapper">
-                            <span>ファイルを選択</span>
+                            <span>画像を選択</span>
                             <input type="file" id="colorGreenImage" accept="image/*" onchange="previewImage(this, 'colorGreenPreview')">
                         </div>
+                        <input type="text" id="colorGreenEmoji" class="emoji-input" placeholder="絵文字を入力" maxlength="4">
                         <img id="colorGreenPreview" class="preview-image" style="display:none;">
                     </div>
                     <div class="form-group">
                         <label>黄:</label>
                         <div class="file-input-wrapper">
-                            <span>ファイルを選択</span>
+                            <span>画像を選択</span>
                             <input type="file" id="colorYellowImage" accept="image/*" onchange="previewImage(this, 'colorYellowPreview')">
                         </div>
+                        <input type="text" id="colorYellowEmoji" class="emoji-input" placeholder="絵文字を入力" maxlength="4">
                         <img id="colorYellowPreview" class="preview-image" style="display:none;">
                     </div>
                     <div class="form-group">
                         <label>紫:</label>
                         <div class="file-input-wrapper">
-                            <span>ファイルを選択</span>
+                            <span>画像を選択</span>
                             <input type="file" id="colorPurpleImage" accept="image/*" onchange="previewImage(this, 'colorPurplePreview')">
                         </div>
+                        <input type="text" id="colorPurpleEmoji" class="emoji-input" placeholder="絵文字を入力" maxlength="4">
                         <img id="colorPurplePreview" class="preview-image" style="display:none;">
                     </div>
                     <div class="form-group">
                         <label>オレンジ:</label>
                         <div class="file-input-wrapper">
-                            <span>ファイルを選択</span>
+                            <span>画像を選択</span>
                             <input type="file" id="colorOrangeImage" accept="image/*" onchange="previewImage(this, 'colorOrangePreview')">
                         </div>
+                        <input type="text" id="colorOrangeEmoji" class="emoji-input" placeholder="絵文字を入力" maxlength="4">
                         <img id="colorOrangePreview" class="preview-image" style="display:none;">
                     </div>
-                    <button type="button" class="button" onclick="saveColorImages()">保存</button>
+                    <button type="button" class="button" onclick="saveColorSettings()">保存</button>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- ゲームオーバーモーダル -->
     <div id="gameOverModal" class="game-over-modal">
         <div class="game-over-content">
             <h2>ゲーム終了！</h2>
@@ -800,13 +790,11 @@
         </div>
     </div>
 
-    <!-- カットシーン -->
     <div id="cutscene" class="cutscene">
         <img id="cutsceneImage" src="" alt="スキル発動">
     </div>
 
     <script>
-        // ゲーム状態
         let gameState = {
             board: [],
             score: 0,
@@ -829,6 +817,14 @@
                 purple: null,
                 orange: null
             },
+            colorEmojis: {
+                red: null,
+                blue: null,
+                green: null,
+                yellow: null,
+                purple: null,
+                orange: null
+            },
             colorWeights: {
                 red: 1,
                 blue: 1,
@@ -841,7 +837,6 @@
             pendingActions: []
         };
 
-        // 色定義
         const colors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
         const colorEmojis = {
             red: '🔴',
@@ -852,7 +847,6 @@
             orange: '🟠'
         };
 
-        // 初期化
         function initGame() {
             createBoard();
             loadData();
@@ -860,9 +854,10 @@
             updateSpecialPanelOptions();
             fillBoard();
             updateEffectIndicator();
+            initSkillForm();
+            initPanelForm();
         }
 
-        // ボード作成
         function createBoard() {
             const board = document.getElementById('gameBoard');
             board.innerHTML = '';
@@ -887,7 +882,6 @@
             }
         }
 
-        // 重み付きランダム選択
         function weightedRandomColor() {
             const weights = colors.map(color => gameState.colorWeights[color]);
             const totalWeight = weights.reduce((sum, w) => sum + w, 0);
@@ -900,10 +894,9 @@
                     return colors[i];
                 }
             }
-            return colors[colors.length - 1]; // フォールバック
+            return colors[colors.length - 1];
         }
 
-        // ボードを埋める
         function fillBoard() {
             for (let y = 0; y < 10; y++) {
                 for (let x = 0; x < 10; x++) {
@@ -919,7 +912,6 @@
             updateDisplay();
         }
 
-        // 表示更新
         function updateDisplay() {
             const cells = document.querySelectorAll('.cell');
             cells.forEach(cell => {
@@ -928,7 +920,7 @@
                 const panel = gameState.board[y][x];
                 
                 cell.innerHTML = '';
-                cell.className = 'cell'; // リセット
+                cell.className = 'cell';
                 if (panel && panel.type !== 'empty') {
                     cell.classList.add(`color-${panel.color}`);
                     if (panel.type === 'bomb') {
@@ -940,13 +932,17 @@
                             const img = document.createElement('img');
                             img.src = panel.imageUrl;
                             cell.appendChild(img);
+                        } else if (panel.emoji) {
+                            cell.textContent = panel.emoji;
                         } else {
-                            cell.textContent = panel.emoji || colorEmojis[panel.color];
+                            cell.textContent = '⭐';
                         }
                     } else if (gameState.colorImages[panel.color]) {
                         const img = document.createElement('img');
                         img.src = gameState.colorImages[panel.color];
                         cell.appendChild(img);
+                    } else if (gameState.colorEmojis[panel.color]) {
+                        cell.textContent = gameState.colorEmojis[panel.color];
                     } else {
                         cell.textContent = colorEmojis[panel.color];
                     }
@@ -959,7 +955,6 @@
             updateEffectIndicator();
         }
 
-        // 特殊効果インジケーター更新
         function updateEffectIndicator() {
             const indicator = document.getElementById('effectIndicator');
             const effects = [];
@@ -981,7 +976,6 @@
             }
         }
 
-        // セル選択処理
         let isSelecting = false;
         let lastSelectedCell = null;
 
@@ -1041,7 +1035,6 @@
             }
         }
 
-        // タッチイベント処理
         function handleTouch(e) {
             e.preventDefault();
             startSelection({target: e.target.closest('.cell')});
@@ -1061,7 +1054,6 @@
             endSelection();
         }
 
-        // セル選択
         function selectCell(x, y) {
             const panel = gameState.board[y][x];
             if (!panel || panel.type !== 'normal') return;
@@ -1076,12 +1068,10 @@
             }
         }
 
-        // 隣接チェック
         function isAdjacent(x1, y1, x2, y2) {
             return Math.abs(x1 - x2) <= 1 && Math.abs(y1 - y2) <= 1 && !(x1 === x2 && y1 === y2);
         }
 
-        // 選択解除
         function clearSelection() {
             gameState.selectedCells = [];
             document.querySelectorAll('.cell.selected').forEach(cell => {
@@ -1089,7 +1079,6 @@
             });
         }
 
-        // アクションキュー処理
         function queueAction(action) {
             gameState.pendingActions.push(action);
             if (gameState.pendingActions.length === 1) {
@@ -1109,7 +1098,6 @@
             action();
         }
 
-        // チェーン処理
         function processChain() {
             const chainLength = gameState.selectedCells.length;
             gameState.chain = chainLength;
@@ -1149,7 +1137,6 @@
             }, 300);
         }
 
-        // パネル削除処理
         function processRemovePanels(panels) {
             const removedColors = {};
             const toProcess = [...panels];
@@ -1197,7 +1184,6 @@
             return removedColors;
         }
 
-        // パーティクル生成
         function createParticles(x, y) {
             const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
             const rect = cell.getBoundingClientRect();
@@ -1215,7 +1201,6 @@
             }
         }
 
-        // パネル落下
         function dropPanels() {
             for (let x = 0; x < 10; x++) {
                 let writeIndex = 9;
@@ -1231,7 +1216,6 @@
             }
         }
 
-        // 爆弾爆発
         function explodeBomb(x, y) {
             const toRemove = [];
             for (let dy = -1; dy <= 1; dy++) {
@@ -1267,7 +1251,6 @@
             }, 300);
         }
 
-        // スキルプログレス更新
         function updateSkillProgress(color, count) {
             gameState.activeDeck.forEach((skill, index) => {
                 if (skill.requiredColor === color || skill.requiredColor === 'any') {
@@ -1284,7 +1267,6 @@
             updateSkillButtons();
         }
 
-        // スキルボタン更新
         function updateSkillButtons() {
             const container = document.getElementById('skillsContainer');
             container.innerHTML = '';
@@ -1307,6 +1289,8 @@
                     button.style.backgroundSize = 'cover';
                     button.style.color = 'white';
                     button.style.textShadow = '0 0 2px black';
+                } else if (skill.emoji) {
+                    button.textContent = skill.emoji + ' ' + button.textContent;
                 }
                 
                 button.onclick = () => queueAction(() => useSkill(index));
@@ -1314,7 +1298,6 @@
             });
         }
 
-        // スキル使用
         function useSkill(skillIndex) {
             const skill = gameState.activeDeck[skillIndex];
             if (!skill) return;
@@ -1340,7 +1323,6 @@
             }, skill.cutsceneUrl ? 1200 : 0);
         }
 
-        // スキル効果実行
         function executeSkillEffect(skill) {
             const toRemove = [];
             
@@ -1426,7 +1408,6 @@
             }, 300);
         }
 
-        // 特殊効果適用
         function applySpecialEffect(skill) {
             if (skill.specialEffect === 'scoreBoost') {
                 gameState.specialEffects.scoreBoost = {
@@ -1447,14 +1428,11 @@
             updateEffectIndicator();
         }
 
-        // 色重み更新
         function updateColorWeights() {
-            // 基本重みをリセット
             colors.forEach(color => {
                 gameState.colorWeights[color] = 1;
             });
             
-            // アクティブなcolorBoost効果を適用
             if (gameState.specialEffects.colorBoost) {
                 gameState.specialEffects.colorBoost.forEach(boost => {
                     if (boost.duration > 0) {
@@ -1464,7 +1442,6 @@
             }
         }
 
-        // 特殊効果更新
         function updateSpecialEffects() {
             Object.keys(gameState.specialEffects).forEach(effect => {
                 if (effect === 'colorBoost') {
@@ -1486,7 +1463,6 @@
             updateEffectIndicator();
         }
 
-        // カットシーン表示
         function showCutscene(imageUrl) {
             const cutscene = document.getElementById('cutscene');
             const image = document.getElementById('cutsceneImage');
@@ -1507,7 +1483,6 @@
             }, 1200);
         }
 
-        // タイマー更新
         function updateTimer() {
             gameState.timeLeft--;
             updateDisplay();
@@ -1517,7 +1492,6 @@
             }
         }
 
-        // ゲーム開始
         function startGame() {
             gameState.isGameActive = true;
             gameState.score = 0;
@@ -1545,7 +1519,6 @@
             updateSkillButtons();
         }
 
-        // ゲーム終了
         function endGame() {
             gameState.isGameActive = false;
             clearInterval(gameState.gameTimer);
@@ -1555,7 +1528,6 @@
             document.getElementById('gameOverModal').style.display = 'flex';
         }
 
-        // ゲームリセット
         function resetGame() {
             gameState.isGameActive = false;
             document.getElementById('gameOverModal').style.display = 'none';
@@ -1586,7 +1558,6 @@
             updateDisplay();
         }
 
-        // モーダル操作
         function openModal() {
             document.getElementById('mainModal').style.display = 'block';
             updateSkillList();
@@ -1597,6 +1568,8 @@
 
         function closeModal() {
             document.getElementById('mainModal').style.display = 'none';
+            resetSkillForm();
+            resetPanelForm();
         }
 
         function showTab(tabName) {
@@ -1607,7 +1580,6 @@
             document.getElementById(tabName + 'Tab').classList.add('active');
         }
 
-        // 画像プレビュー
         function previewImage(input, previewId) {
             const preview = document.getElementById(previewId);
             if (input.files && input.files[0]) {
@@ -1620,7 +1592,63 @@
             }
         }
 
-        // スキル作成関連
+        function initGridSelector(containerId, size, isRelative = false) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    cell.dataset.x = isRelative ? x - Math.floor(size / 2) : x;
+                    cell.dataset.y = isRelative ? y - Math.floor(size / 2) : y;
+                    if (isRelative && x === Math.floor(size / 2) && y === Math.floor(size / 2)) {
+                        cell.classList.add('center');
+                    }
+                    cell.onclick = () => toggleGridCell(cell, containerId);
+                    container.appendChild(cell);
+                }
+            }
+        }
+
+        function toggleGridCell(cell, containerId) {
+            cell.classList.toggle('selected');
+        }
+
+        function getSelectedCoordinates(containerId, isRelative = false) {
+            const coordinates = [];
+            document.querySelectorAll(`#${containerId} .grid-cell.selected`).forEach(cell => {
+                const x = parseInt(cell.dataset.x);
+                const y = parseInt(cell.dataset.y);
+                if (!isNaN(x) && !isNaN(y)) {
+                    coordinates.push({x, y});
+                }
+            });
+            return coordinates;
+        }
+
+        function setSelectedCoordinates(containerId, coordinates, isRelative = false) {
+            document.querySelectorAll(`#${containerId} .grid-cell`).forEach(cell => {
+                cell.classList.remove('selected');
+            });
+            coordinates.forEach(({x, y}) => {
+                const adjustedX = isRelative ? x + Math.floor((containerId === 'panelClearGrid' ? 19 : 10) / 2) : x;
+                const adjustedY = isRelative ? y + Math.floor((containerId === 'panelClearGrid' ? 19 : 10) / 2) : y;
+                const cell = document.querySelector(`#${containerId} [data-x="${adjustedX}"][data-y="${adjustedY}"]`);
+                if (cell) cell.classList.add('selected');
+            });
+        }
+
+        function initSkillForm() {
+            initGridSelector('clearGrid', 10);
+            initGridSelector('specialGrid', 10);
+            toggleClearOptions();
+        }
+
+        function initPanelForm() {
+            initGridSelector('panelClearGrid', 19, true);
+        }
+
         function toggleClearOptions() {
             const clearType = document.getElementById('clearType').value;
             document.getElementById('coordinatesSection').style.display = clearType === 'coordinates' ? 'block' : 'none';
@@ -1637,47 +1665,6 @@
             colorOptions.style.display = effect === 'colorBoost' ? 'block' : 'none';
         }
 
-        function addClearCoordinate() {
-            const container = document.getElementById('clearCoordinates');
-            const div = document.createElement('div');
-            div.className = 'coordinate-input';
-            div.innerHTML = `
-                <input type="number" placeholder="x" min="0" max="9">
-                <input type="number" placeholder="y" min="0" max="9">
-                <button type="button" class="remove-coordinate" onclick="removeCoordinate(this)">削除</button>
-            `;
-            container.appendChild(div);
-        }
-
-        function addSpecialCoordinate() {
-            const container = document.getElementById('specialCoordinates');
-            const div = document.createElement('div');
-            div.className = 'coordinate-input';
-            div.innerHTML = `
-                <input type="number" placeholder="x" min="0" max="9">
-                <input type="number" placeholder="y" min="0" max="9">
-                <button type="button" class="remove-coordinate" onclick="removeCoordinate(this)">削除</button>
-            `;
-            container.appendChild(div);
-        }
-
-        function addPanelCoordinate() {
-            const container = document.getElementById('panelClearCoordinates');
-            const div = document.createElement('div');
-            div.className = 'coordinate-input';
-            div.innerHTML = `
-                <input type="number" placeholder="x" min="-5" max="5">
-                <input type="number" placeholder="y" min="-5" max="5">
-                <button type="button" class="remove-coordinate" onclick="removeCoordinate(this)">削除</button>
-            `;
-            container.appendChild(div);
-        }
-
-        function removeCoordinate(button) {
-            button.parentElement.remove();
-        }
-
-        // スキル作成
         function createSkill() {
             const name = document.getElementById('skillName').value;
             if (!name) {
@@ -1691,7 +1678,8 @@
                 requiredColor: document.getElementById('requiredColor').value,
                 clearType: document.getElementById('clearType').value,
                 specialPanel: document.getElementById('specialPanel').value,
-                specialEffect: document.getElementById('specialEffect').value
+                specialEffect: document.getElementById('specialEffect').value,
+                emoji: document.getElementById('skillEmoji').value || null
             };
 
             const iconFile = document.getElementById('skillIcon').files[0];
@@ -1723,14 +1711,7 @@
 
         function finishSkillCreation(skill) {
             if (skill.clearType === 'coordinates') {
-                skill.clearCoordinates = [];
-                document.querySelectorAll('#clearCoordinates .coordinate-input').forEach(input => {
-                    const x = parseInt(input.children[0].value);
-                    const y = parseInt(input.children[1].value);
-                    if (!isNaN(x) && !isNaN(y)) {
-                        skill.clearCoordinates.push({x, y});
-                    }
-                });
+                skill.clearCoordinates = getSelectedCoordinates('clearGrid');
             } else if (skill.clearType === 'color') {
                 skill.clearColor = document.getElementById('clearColor').value;
                 skill.clearColorCount = parseInt(document.getElementById('clearColorCount').value) || 0;
@@ -1738,14 +1719,7 @@
                 skill.randomClearCount = parseInt(document.getElementById('randomClearCount').value) || 0;
             }
 
-            skill.specialCoordinates = [];
-            document.querySelectorAll('#specialCoordinates .coordinate-input').forEach(input => {
-                const x = parseInt(input.children[0].value);
-                const y = parseInt(input.children[1].value);
-                if (!isNaN(x) && !isNaN(y)) {
-                    skill.specialCoordinates.push({x, y});
-                }
-            });
+            skill.specialCoordinates = getSelectedCoordinates('specialGrid');
 
             if (skill.specialEffect) {
                 skill.effectDuration = parseInt(document.getElementById('effectDuration').value);
@@ -1761,16 +1735,149 @@
             updateDeckList();
             updateSpecialPanelOptions();
             
-            document.getElementById('skillForm').reset();
-            document.getElementById('skillIconPreview').style.display = 'none';
-            document.getElementById('skillCutscenePreview').style.display = 'none';
-            toggleClearOptions();
-            toggleEffectOptions();
-            
+            resetSkillForm();
             alert('スキルを作成しました！');
         }
 
-        // 特殊パネル作成
+        function editSkill(index) {
+            const skill = gameState.skills[index];
+            document.getElementById('skillFormTitle').textContent = 'スキル編集';
+            document.getElementById('skillSubmitButton').textContent = 'スキル更新';
+            document.getElementById('skillSubmitButton').onclick = () => updateSkill(index);
+            
+            document.getElementById('skillName').value = skill.name;
+            document.getElementById('requiredCount').value = skill.requiredCount;
+            document.getElementById('requiredColor').value = skill.requiredColor;
+            document.getElementById('clearType').value = skill.clearType || 'none';
+            document.getElementById('specialPanel').value = skill.specialPanel || '';
+            document.getElementById('specialEffect').value = skill.specialEffect || '';
+            
+            if (skill.iconUrl) {
+                document.getElementById('skillIconPreview').src = skill.iconUrl;
+                document.getElementById('skillIconPreview').style.display = 'block';
+            }
+            if (skill.emoji) {
+                document.getElementById('skillEmoji').value = skill.emoji;
+            }
+            if (skill.cutsceneUrl) {
+                document.getElementById('skillCutscenePreview').src = skill.cutsceneUrl;
+                document.getElementById('skillCutscenePreview').style.display = 'block';
+            }
+            
+            if (skill.clearType === 'coordinates') {
+                setSelectedCoordinates('clearGrid', skill.clearCoordinates);
+            } else if (skill.clearType === 'color') {
+                document.getElementById('clearColor').value = skill.clearColor;
+                document.getElementById('clearColorCount').value = skill.clearColorCount;
+            } else if (skill.clearType === 'random') {
+                document.getElementById('randomClearCount').value = skill.randomClearCount;
+            }
+            
+            setSelectedCoordinates('specialGrid', skill.specialCoordinates);
+            
+            if (skill.specialEffect) {
+                document.getElementById('effectDuration').value = skill.effectDuration;
+                document.getElementById('effectValue').value = skill.effectValue;
+                if (skill.specialEffect === 'colorBoost') {
+                    document.getElementById('boostColor').value = skill.boostColor;
+                }
+            }
+            
+            toggleClearOptions();
+            toggleEffectOptions();
+        }
+
+        function updateSkill(index) {
+            const skill = {
+                name: document.getElementById('skillName').value,
+                requiredCount: parseInt(document.getElementById('requiredCount').value),
+                requiredColor: document.getElementById('requiredColor').value,
+                clearType: document.getElementById('clearType').value,
+                specialPanel: document.getElementById('specialPanel').value,
+                specialEffect: document.getElementById('specialEffect').value,
+                emoji: document.getElementById('skillEmoji').value || null
+            };
+            
+            if (!skill.name) {
+                alert('スキル名を入力してください');
+                return;
+            }
+            
+            const iconFile = document.getElementById('skillIcon').files[0];
+            if (iconFile) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    skill.iconUrl = e.target.result;
+                    continueUpdateSkill(skill, index);
+                };
+                reader.readAsDataURL(iconFile);
+            } else {
+                skill.iconUrl = gameState.skills[index].iconUrl;
+                continueUpdateSkill(skill, index);
+            }
+        }
+
+        function continueUpdateSkill(skill, index) {
+            const cutsceneFile = document.getElementById('skillCutscene').files[0];
+            if (cutsceneFile) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    skill.cutsceneUrl = e.target.result;
+                    finishUpdateSkill(skill, index);
+                };
+                reader.readAsDataURL(cutsceneFile);
+            } else {
+                skill.cutsceneUrl = gameState.skills[index].cutsceneUrl;
+                finishUpdateSkill(skill, index);
+            }
+        }
+
+        function finishUpdateSkill(skill, index) {
+            if (skill.clearType === 'coordinates') {
+                skill.clearCoordinates = getSelectedCoordinates('clearGrid');
+            } else if (skill.clearType === 'color') {
+                skill.clearColor = document.getElementById('clearColor').value;
+                skill.clearColorCount = parseInt(document.getElementById('clearColorCount').value) || 0;
+            } else if (skill.clearType === 'random') {
+                skill.randomClearCount = parseInt(document.getElementById('randomClearCount').value) || 0;
+            }
+            
+            skill.specialCoordinates = getSelectedCoordinates('specialGrid');
+            
+            if (skill.specialEffect) {
+                skill.effectDuration = parseInt(document.getElementById('effectDuration').value);
+                skill.effectValue = parseFloat(document.getElementById('effectValue').value);
+                if (skill.specialEffect === 'colorBoost') {
+                    skill.boostColor = document.getElementById('boostColor').value;
+                }
+            }
+            
+            gameState.skills[index] = skill;
+            gameState.activeDeck = gameState.activeDeck.map(s => s.name === skill.name ? skill : s);
+            
+            saveData();
+            updateSkillList();
+            updateDeckList();
+            updateSkillButtons();
+            
+            resetSkillForm();
+            alert('スキルを更新しました！');
+        }
+
+        function resetSkillForm() {
+            document.getElementById('skillForm').reset();
+            document.getElementById('skillFormTitle').textContent = 'スキル作成';
+            document.getElementById('skillSubmitButton').textContent = 'スキル作成';
+            document.getElementById('skillSubmitButton').onclick = createSkill;
+            document.getElementById('skillIconPreview').style.display = 'none';
+            document.getElementById('skillCutscenePreview').style.display = 'none';
+            document.getElementById('skillEmoji').value = '';
+            document.querySelectorAll('#clearGrid .grid-cell').forEach(cell => cell.classList.remove('selected'));
+            document.querySelectorAll('#specialGrid .grid-cell').forEach(cell => cell.classList.remove('selected'));
+            toggleClearOptions();
+            toggleEffectOptions();
+        }
+
         function createPanel() {
             const name = document.getElementById('panelName').value;
             if (!name) {
@@ -1781,55 +1888,109 @@
             const panel = {
                 name: name,
                 color: document.getElementById('panelColor').value,
-                clearCoordinates: []
+                clearCoordinates: getSelectedCoordinates('panelClearGrid', true),
+                emoji: document.getElementById('panelEmoji').value || '⭐'
             };
-
-            document.querySelectorAll('#panelClearCoordinates .coordinate-input').forEach(input => {
-                const x = parseInt(input.children[0].value);
-                const y = parseInt(input.children[1].value);
-                if (!isNaN(x) && !isNaN(y)) {
-                    panel.clearCoordinates.push({x, y});
-                }
-            });
 
             const imageFile = document.getElementById('panelImage').files[0];
             if (imageFile) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     panel.imageUrl = e.target.result;
-                    panel.emoji = '⭐';
                     gameState.specialPanels.push(panel);
                     saveData();
                     updatePanelList();
                     updateSpecialPanelOptions();
-                    
-                    document.getElementById('panelForm').reset();
-                    document.getElementById('panelImagePreview').style.display = 'none';
-                    
+                    resetPanelForm();
                     alert('特殊パネルを作成しました！');
                 };
                 reader.readAsDataURL(imageFile);
             } else {
-                panel.emoji = '⭐';
                 gameState.specialPanels.push(panel);
                 saveData();
                 updatePanelList();
                 updateSpecialPanelOptions();
-                
-                document.getElementById('panelForm').reset();
-                
+                resetPanelForm();
                 alert('特殊パネルを作成しました！');
             }
         }
 
-        // 色画像保存
-        function saveColorImages() {
+        function editPanel(index) {
+            const panel = gameState.specialPanels[index];
+            document.getElementById('panelFormTitle').textContent = '特殊パネル編集';
+            document.getElementById('panelSubmitButton').textContent = 'パネル更新';
+            document.getElementById('panelSubmitButton').onclick = () => updatePanel(index);
+            
+            document.getElementById('panelName').value = panel.name;
+            document.getElementById('panelColor').value = panel.color;
+            if (panel.imageUrl) {
+                document.getElementById('panelImagePreview').src = panel.imageUrl;
+                document.getElementById('panelImagePreview').style.display = 'block';
+            }
+            if (panel.emoji) {
+                document.getElementById('panelEmoji').value = panel.emoji;
+            }
+            
+            setSelectedCoordinates('panelClearGrid', panel.clearCoordinates, true);
+        }
+
+        function updatePanel(index) {
+            const panel = {
+                name: document.getElementById('panelName').value,
+                color: document.getElementById('panelColor').value,
+                clearCoordinates: getSelectedCoordinates('panelClearGrid', true),
+                emoji: document.getElementById('panelEmoji').value || '⭐'
+            };
+            
+            if (!panel.name) {
+                alert('パネル名を入力してください');
+                return;
+            }
+            
+            const imageFile = document.getElementById('panelImage').files[0];
+            if (imageFile) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    panel.imageUrl = e.target.result;
+                    finishUpdatePanel(panel, index);
+                };
+                reader.readAsDataURL(imageFile);
+            } else {
+                panel.imageUrl = gameState.specialPanels[index].imageUrl;
+                finishUpdatePanel(panel, index);
+            }
+        }
+
+        function finishUpdatePanel(panel, index) {
+            gameState.specialPanels[index] = panel;
+            saveData();
+            updatePanelList();
+            updateSpecialPanelOptions();
+            
+            resetPanelForm();
+            alert('特殊パネルを更新しました！');
+        }
+
+        function resetPanelForm() {
+            document.getElementById('panelForm').reset();
+            document.getElementById('panelFormTitle').textContent = '特殊パネル作成';
+            document.getElementById('panelSubmitButton').textContent = 'パネル作成';
+            document.getElementById('panelSubmitButton').onclick = createPanel;
+            document.getElementById('panelImagePreview').style.display = 'none';
+            document.getElementById('panelEmoji').value = '';
+            document.querySelectorAll('#panelClearGrid .grid-cell').forEach(cell => cell.classList.remove('selected'));
+        }
+
+        function saveColorSettings() {
             const colors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
             let pending = colors.length;
             let completed = 0;
-
+            
             colors.forEach(color => {
                 const input = document.getElementById(`color${color.charAt(0).toUpperCase() + color.slice(1)}Image`);
+                const emojiInput = document.getElementById(`color${color.charAt(0).toUpperCase() + color.slice(1)}Emoji`);
+                gameState.colorEmojis[color] = emojiInput.value || null;
+                
                 if (input.files && input.files[0]) {
                     const reader = new FileReader();
                     reader.onload = function(e) {
@@ -1838,7 +1999,8 @@
                         if (completed === pending) {
                             saveData();
                             updateDisplay();
-                            alert('色画像を保存しました！');
+                            updateColorForm();
+                            alert('色設定を保存しました！');
                         }
                     };
                     reader.readAsDataURL(input.files[0]);
@@ -1847,27 +2009,28 @@
                     if (completed === pending) {
                         saveData();
                         updateDisplay();
-                        alert('色画像を保存しました！');
+                        updateColorForm();
+                        alert('色設定を保存しました！');
                     }
                 }
             });
         }
 
-        // 色フォーム更新
         function updateColorForm() {
             const colors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
             colors.forEach(color => {
                 const preview = document.getElementById(`color${color.charAt(0).toUpperCase() + color.slice(1)}Preview`);
+                const emojiInput = document.getElementById(`color${color.charAt(0).toUpperCase() + color.slice(1)}Emoji`);
                 if (gameState.colorImages[color]) {
                     preview.src = gameState.colorImages[color];
                     preview.style.display = 'block';
                 } else {
                     preview.style.display = 'none';
                 }
+                emojiInput.value = gameState.colorEmojis[color] || '';
             });
         }
 
-        // リスト更新
         function updateSkillList() {
             const list = document.getElementById('skillList');
             list.innerHTML = '';
@@ -1884,6 +2047,7 @@
                     <small>必要: ${skill.requiredColor} ${skill.requiredCount}個</small><br>
                     <small>効果: ${skill.clearType}</small><br>
                     <small>特殊効果: ${effectText}</small>
+                    <button class="button" onclick="editSkill(${index})" style="float: right; padding: 2px 8px; margin-right: 5px;">編集</button>
                     <button class="button" onclick="deleteSkill(${index})" style="float: right; padding: 2px 8px;">削除</button>
                 `;
                 list.appendChild(div);
@@ -1901,6 +2065,7 @@
                     <strong>${panel.name}</strong><br>
                     <small>色: ${panel.color}</small><br>
                     <small>消去範囲: ${panel.clearCoordinates.length}箇所</small>
+                    <button class="button" onclick="editPanel(${index})" style="float: right; padding: 2px 8px; margin-right: 5px;">編集</button>
                     <button class="button" onclick="deletePanel(${index})" style="float: right; padding: 2px 8px;">削除</button>
                 `;
                 list.appendChild(div);
@@ -1914,9 +2079,9 @@
             gameState.skills.forEach((skill, index) => {
                 const div = document.createElement('div');
                 div.className = 'skill-item';
-                if (gameState.activeDeck.some(s => s.name === skill.name)) {
-                    div.classList.add('selected');
-                }
+                const isSelected = gameState.activeDeck.some(s => s.name === skill.name);
+                if (isSelected) div.classList.add('selected');
+                
                 let effectText = skill.specialEffect ? 
                     (skill.specialEffect === 'scoreBoost' ? 
                         `スコア${skill.effectValue.toFixed(1)}倍(${skill.effectDuration}ターン)` :
@@ -1927,37 +2092,23 @@
                     <small>効果: ${skill.clearType}</small><br>
                     <small>特殊効果: ${effectText}</small>
                 `;
-                div.onclick = () => toggleDeckSkill(skill, div);
+                div.onclick = () => toggleDeckSkill(skill);
                 list.appendChild(div);
             });
         }
 
-        function updateSpecialPanelOptions() {
-            const select = document.getElementById('specialPanel');
-            const customOptions = select.querySelectorAll('option[data-custom]');
-            customOptions.forEach(option => option.remove());
-            
-            gameState.specialPanels.forEach(panel => {
-                const option = document.createElement('option');
-                option.value = panel.name;
-                option.textContent = panel.name;
-                option.dataset.custom = 'true';
-                select.appendChild(option);
-            });
-        }
-
-        // デッキ操作
-        function toggleDeckSkill(skill, element) {
-            const existingIndex = gameState.activeDeck.findIndex(s => s.name === skill.name);
-            if (existingIndex !== -1) {
-                gameState.activeDeck.splice(existingIndex, 1);
-                element.classList.remove('selected');
+        function toggleDeckSkill(skill) {
+            const index = gameState.activeDeck.findIndex(s => s.name === skill.name);
+            if (index !== -1) {
+                gameState.activeDeck.splice(index, 1);
             } else if (gameState.activeDeck.length < 4) {
                 gameState.activeDeck.push(skill);
-                element.classList.add('selected');
             } else {
-                alert('デッキには最大4つのスキルまで設定できます');
+                alert('デッキには最大4つのスキルまで設定できます。');
+                return;
             }
+            updateDeckList();
+            updateSkillButtons();
         }
 
         function saveDeck() {
@@ -1966,7 +2117,6 @@
             alert('デッキを保存しました！');
         }
 
-        // 削除
         function deleteSkill(index) {
             if (confirm('このスキルを削除しますか？')) {
                 const skill = gameState.skills[index];
@@ -1981,32 +2131,113 @@
 
         function deletePanel(index) {
             if (confirm('この特殊パネルを削除しますか？')) {
+                const panel = gameState.specialPanels[index];
                 gameState.specialPanels.splice(index, 1);
+                gameState.skills.forEach(skill => {
+                    if (skill.specialPanel === panel.name) {
+                        skill.specialPanel = '';
+                    }
+                });
+                gameState.activeDeck.forEach(skill => {
+                    if (skill.specialPanel === panel.name) {
+                        skill.specialPanel = '';
+                    }
+                });
                 saveData();
                 updatePanelList();
                 updateSpecialPanelOptions();
+                updateSkillList();
+                updateDeckList();
             }
         }
 
-        // データ保存・読込
+        function updateSpecialPanelOptions() {
+            const select = document.getElementById('specialPanel');
+            const currentValue = select.value;
+            select.innerHTML = `
+                <option value="">なし</option>
+                <option value="bomb">爆弾</option>
+            `;
+            
+            gameState.specialPanels.forEach(panel => {
+                const option = document.createElement('option');
+                option.value = panel.name;
+                option.textContent = panel.name;
+                select.appendChild(option);
+            });
+            
+            select.value = currentValue;
+        }
+
+        function handleSpecialPanelTap(x, y) {
+            const panel = gameState.board[y][x];
+            if (panel.type !== 'special' || !panel.clearPattern) return;
+            
+            const toRemove = [];
+            panel.clearPattern.forEach(({x: dx, y: dy}) => {
+                const nx = x + dx;
+                const ny = y + dy;
+                if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10) {
+                    toRemove.push({x: nx, y: ny});
+                }
+            });
+            
+            const removedColors = processRemovePanels(toRemove);
+            
+            setTimeout(() => {
+                const baseScore = toRemove.length * 95;
+                const bonusScore = Math.pow(toRemove.length, 1.2) * 5;
+                const multiplier = gameState.specialEffects.scoreBoost ? gameState.specialEffects.scoreBoost.multiplier : 1;
+                gameState.score += Math.floor((baseScore + bonusScore) * multiplier);
+                
+                Object.entries(removedColors).forEach(([color, count]) => {
+                    updateSkillProgress(color, count);
+                });
+                
+                updateSpecialEffects();
+                
+                setTimeout(() => {
+                    dropPanels();
+                    fillBoard();
+                    gameState.pendingActions.shift();
+                    processNextAction();
+                }, 500);
+            }, 300);
+        }
+
         function saveData() {
             const data = {
-                skills: gameState.skills,
-                specialPanels: gameState.specialPanels,
-                activeDeck: gameState.activeDeck,
-                colorImages: gameState.colorImages
+                skills: gameState.skills.map(skill => ({
+                    ...skill,
+                    iconUrl: skill.iconUrl || null,
+                    cutsceneUrl: skill.cutsceneUrl || null,
+                    emoji: skill.emoji || null
+                })),
+                specialPanels: gameState.specialPanels.map(panel => ({
+                    ...panel,
+                    imageUrl: panel.imageUrl || null,
+                    emoji: panel.emoji || null
+                })),
+                activeDeck: gameState.activeDeck.map(skill => ({
+                    ...skill,
+                    iconUrl: skill.iconUrl || null,
+                    cutsceneUrl: skill.cutsceneUrl || null,
+                    emoji: skill.emoji || null
+                })),
+                colorImages: gameState.colorImages,
+                colorEmojis: gameState.colorEmojis
             };
-            localStorage.setItem('customTsumTsumData', JSON.stringify(data));
+            localStorage.setItem('customPuzzleData', JSON.stringify(data));
         }
 
         function loadData() {
-            const savedData = localStorage.getItem('customTsumTsumData');
-            if (savedData) {
-                const data = JSON.parse(savedData);
-                gameState.skills = data.skills || [];
-                gameState.specialPanels = data.specialPanels || [];
-                gameState.activeDeck = data.activeDeck || [];
-                gameState.colorImages = data.colorImages || {
+            const data = localStorage.getItem('customPuzzleData');
+            if (data) {
+                const parsed = JSON.parse(data);
+                gameState.skills = parsed.skills || [];
+                gameState.specialPanels = parsed.specialPanels || [];
+                gameState.activeDeck = parsed.activeDeck || [];
+                gameState.colorImages = parsed.colorImages || {
                     red: null,
                     blue: null,
                     green: null,
@@ -2014,42 +2245,7 @@
                     purple: null,
                     orange: null
                 };
-            } else {
-                gameState.skills = [
-                    {
-                        name: 'ランダム爆発',
-                        requiredCount: 10,
-                        requiredColor: 'red',
-                        clearType: 'random',
-                        randomClearCount: 5,
-                        specialPanel: 'bomb',
-                        specialCoordinates: [{x: 4, y: 4}, {x: 5, y: 5}],
-                        specialEffect: '',
-                        iconUrl: '',
-                        cutsceneUrl: ''
-                    },
-                    {
-                        name: 'ブルーライン',
-                        requiredCount: 8,
-                        requiredColor: 'blue',
-                        clearType: 'coordinates',
-                        clearCoordinates: [
-                            {x: 0, y: 5}, {x: 1, y: 5}, {x: 2, y: 5}, 
-                            {x: 3, y: 5}, {x: 4, y: 5}, {x: 5, y: 5},
-                            {x: 6, y: 5}, {x: 7, y: 5}, {x: 8, y: 5}, {x: 9, y: 5}
-                        ],
-                        specialPanel: '',
-                        specialCoordinates: [],
-                        specialEffect: 'colorBoost',
-                        effectDuration: 3,
-                        effectValue: 2.5,
-                        boostColor: 'blue',
-                        iconUrl: '',
-                        cutsceneUrl: ''
-                    }
-                ];
-                gameState.activeDeck = gameState.skills.slice(0, 2);
-                gameState.colorImages = {
+                gameState.colorEmojis = parsed.colorEmojis || {
                     red: null,
                     blue: null,
                     green: null,
@@ -2057,75 +2253,19 @@
                     purple: null,
                     orange: null
                 };
+                updateSkillList();
+                updatePanelList();
+                updateDeckList();
+                updateSpecialPanelOptions();
+                updateColorForm();
             }
         }
 
-        // 特殊パネルのタップ処理
-        function handleSpecialPanelTap(x, y) {
-            const panel = gameState.board[y][x];
-            if (panel.type === 'special' && panel.clearPattern) {
-                const toRemove = [];
-                panel.clearPattern.forEach(({x: dx, y: dy}) => {
-                    const nx = x + dx;
-                    const ny = y + dy;
-                    if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10) {
-                        toRemove.push({x: nx, y: ny});
-                    }
-                });
-                
-                const removedColors = processRemovePanels(toRemove);
-                
-                setTimeout(() => {
-                    const baseScore = toRemove.length * 95;
-                    const bonusScore = Math.pow(toRemove.length, 1.2) * 5;
-                    const multiplier = gameState.specialEffects.scoreBoost ? gameState.specialEffects.scoreBoost.multiplier : 1;
-                    gameState.score += Math.floor((baseScore + bonusScore) * multiplier);
-                    
-                    Object.entries(removedColors).forEach(([color, count]) => {
-                        updateSkillProgress(color, count);
-                    });
-                    
-                    updateSpecialEffects();
-                    
-                    setTimeout(() => {
-                        dropPanels();
-                        fillBoard();
-                        gameState.pendingActions.shift();
-                        processNextAction();
-                    }, 500);
-                }, 300);
-            }
-        }
-
-        // ページ読み込み時の初期化
         window.addEventListener('DOMContentLoaded', function() {
             initGame();
         });
-
-        // クリック外でモーダルを閉じる
-        window.addEventListener('click', function(e) {
-            const modal = document.getElementById('mainModal');
-            if (e.target === modal) {
-                closeModal();
-            }
-        });
-
-        // モバイル対応のタッチイベント防止
-        document.addEventListener('touchmove', function(e) {
-            if (e.target.classList.contains('cell')) {
-                e.preventDefault();
-            }
-        }, { passive: false });
-
-        // ゲーム中のスワイプによる画面移動を防止
-        document.addEventListener('touchstart', function(e) {
-            if (gameState.isGameActive && e.target.classList.contains('cell')) {
-                e.preventDefault();
-            }
-        }, { passive: false });
-
-        // 初期データ読み込み
-        initGame();
     </script>
 </body>
 </html>
+```
+
