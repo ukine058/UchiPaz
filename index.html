@@ -720,65 +720,71 @@
             </div>
             
             <div id="colorsTab" class="tab-content">
-                <h3>色ごとの設定</h3>
-                <form id="colorForm">
-                    <div class="form-group">
-                        <label>赤:</label>
-                        <div class="file-input-wrapper">
-                            <span>画像を選択</span>
-                            <input type="file" id="colorRedImage" accept="image/*" onchange="previewImage(this, 'colorRedPreview')">
-                        </div>
-                        <input type="text" id="colorRedEmoji" class="emoji-input" placeholder="絵文字を入力" maxlength="4">
-                        <img id="colorRedPreview" class="preview-image" style="display:none;">
-                    </div>
-                    <div class="form-group">
-                        <label>青:</label>
-                        <div class="file-input-wrapper">
-                            <span>画像を選択</span>
-                            <input type="file" id="colorBlueImage" accept="image/*" onchange="previewImage(this, 'colorBluePreview')">
-                        </div>
-                        <input type="text" id="colorBlueEmoji" class="emoji-input" placeholder="絵文字を入力" maxlength="4">
-                        <img id="colorBluePreview" class="preview-image" style="display:none;">
-                    </div>
-                    <div class="form-group">
-                        <label>緑:</label>
-                        <div class="file-input-wrapper">
-                            <span>画像を選択</span>
-                            <input type="file" id="colorGreenImage" accept="image/*" onchange="previewImage(this, 'colorGreenPreview')">
-                        </div>
-                        <input type="text" id="colorGreenEmoji" class="emoji-input" placeholder="絵文字を入力" maxlength="4">
-                        <img id="colorGreenPreview" class="preview-image" style="display:none;">
-                    </div>
-                    <div class="form-group">
-                        <label>黄:</label>
-                        <div class="file-input-wrapper">
-                            <span>画像を選択</span>
-                            <input type="file" id="colorYellowImage" accept="image/*" onchange="previewImage(this, 'colorYellowPreview')">
-                        </div>
-                        <input type="text" id="colorYellowEmoji" class="emoji-input" placeholder="絵文字を入力" maxlength="4">
-                        <img id="colorYellowPreview" class="preview-image" style="display:none;">
-                    </div>
-                    <div class="form-group">
-                        <label>紫:</label>
-                        <div class="file-input-wrapper">
-                            <span>画像を選択</span>
-                            <input type="file" id="colorPurpleImage" accept="image/*" onchange="previewImage(this, 'colorPurplePreview')">
-                        </div>
-                        <input type="text" id="colorPurpleEmoji" class="emoji-input" placeholder="絵文字を入力" maxlength="4">
-                        <img id="colorPurplePreview" class="preview-image" style="display:none;">
-                    </div>
-                    <div class="form-group">
-                        <label>オレンジ:</label>
-                        <div class="file-input-wrapper">
-                            <span>画像を選択</span>
-                            <input type="file" id="colorOrangeImage" accept="image/*" onchange="previewImage(this, 'colorOrangePreview')">
-                        </div>
-                        <input type="text" id="colorOrangeEmoji" class="emoji-input" placeholder="絵文字を入力" maxlength="4">
-                        <img id="colorOrangePreview" class="preview-image" style="display:none;">
-                    </div>
-                    <button type="button" class="button" onclick="saveColorSettings()">保存</button>
-                </form>
+    <h3>色ごとの設定</h3>
+    <form id="colorForm">
+        <div class="form-group">
+            <label>赤:</label>
+            <div class="file-input-wrapper">
+                <span>画像を選択</span>
+                <input type="file" id="colorRedImage" accept="image/*" onchange="previewImage(this, 'colorRedPreview')">
             </div>
+            <input type="text" id="colorRedEmoji" class="emoji-input" placeholder="絵文字を入力" maxlength="4">
+            <img id="colorRedPreview" class="preview-image" style="display:none;">
+            <button type="button" class="button" onclick="clearColorImage('red')" style="background: #ff6b6b; margin-top: 5px;">画像解除</button>
+        </div>
+        <div class="form-group">
+            <label>青:</label>
+            <div class="file-input-wrapper">
+                <span>画像を選択</span>
+                <input type="file" id="colorBlueImage" accept="image/*" onchange="previewImage(this, 'colorBluePreview')">
+            </div>
+            <input type="text" id="colorBlueEmoji" class="emoji-input" placeholder="絵文字を入力" maxlength="4">
+            <img id="colorBluePreview" class="preview-image" style="display:none;">
+            <button type="button" class="button" onclick="clearColorImage('blue')" style="background: #ff6b6b; margin-top: 5px;">画像解除</button>
+        </div>
+        <div class="form-group">
+            <label>緑:</label>
+            <div class="file-input-wrapper">
+                <span>画像を選択</span>
+                <input type="file" id="colorGreenImage" accept="image/*" onchange="previewImage(this, 'colorGreenPreview')">
+            </div>
+            <input type="text" id="colorGreenEmoji" class="emoji-input" placeholder="絵文字を入力" maxlength="4">
+            <img id="colorGreenPreview" class="preview-image" style="display:none;">
+            <button type="button" class="button" onclick="clearColorImage('green')" style="background: #ff6b6b; margin-top: 5px;">画像解除</button>
+        </div>
+        <div class="form-group">
+            <label>黄:</label>
+            <div class="file-input-wrapper">
+                <span>画像を選択</span>
+                <input type="file" id="colorYellowImage" accept="image/*" onchange="previewImage(this, 'colorYellowPreview')">
+            </div>
+            <input type="text" id="colorYellowEmoji" class="emoji-input" placeholder="絵文字を入力" maxlength="4">
+            <img id="colorYellowPreview" class="preview-image" style="display:none;">
+            <button type="button" class="button" onclick="clearColorImage('yellow')" style="background: #ff6b6b; margin-top: 5px;">画像解除</button>
+        </div>
+        <div class="form-group">
+            <label>紫:</label>
+            <div class="file-input-wrapper">
+                <span>画像を選択</span>
+                <input type="file" id="colorPurpleImage" accept="image/*" onchange="previewImage(this, 'colorPurplePreview')">
+            </div>
+            <input type="text" id="colorPurpleEmoji" class="emoji-input" placeholder="絵文字を入力" maxlength="4">
+            <img id="colorPurplePreview" class="preview-image" style="display:none;">
+            <button type="button" class="button" onclick="clearColorImage('purple')" style="background: #ff6b6b; margin-top: 5px;">画像解除</button>
+        </div>
+        <div class="form-group">
+            <label>オレンジ:</label>
+            <div class="file-input-wrapper">
+                <span>画像を選択</span>
+                <input type="file" id="colorOrangeImage" accept="image/*" onchange="previewImage(this, 'colorOrangePreview')">
+            </div>
+            <input type="text" id="colorOrangeEmoji" class="emoji-input" placeholder="絵文字を入力" maxlength="4">
+            <img id="colorOrangePreview" class="preview-image" style="display:none;">
+            <button type="button" class="button" onclick="clearColorImage('orange')" style="background: #ff6b6b; margin-top: 5px;">画像解除</button>
+        </div>
+        <button type="button" class="button" onclick="saveColorSettings()">保存</button>
+    </form>
+</div>
         </div>
     </div>
 
@@ -2015,6 +2021,19 @@
                 }
             });
         }
+
+        function clearColorImage(color) {
+    if (confirm(`${color}の画像を解除しますか？`)) {
+        gameState.colorImages[color] = null;
+        const preview = document.getElementById(`color${color.charAt(0).toUpperCase() + color.slice(1)}Preview`);
+        preview.style.display = 'none';
+        preview.src = '';
+        saveData();
+        updateDisplay();
+        updateColorForm();
+        alert(`${color}の画像を解除しました！`);
+    }
+}
 
         function updateColorForm() {
             const colors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
