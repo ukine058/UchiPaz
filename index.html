@@ -2225,49 +2225,49 @@
         }
 
         // handleSpecialPanelTapの修正：安定化と競合防止
-        function handleSpecialPanelTap(x, y) {
-            const panel = gameState.board[y][x];
-            if (panel.type !== 'special' || !panel.clearPattern) {
-                gameState.pendingActions.shift();
-                processNextAction();
-                return;
-            }
-            
-            const toRemove = [];
-            const processed = new Set();
-            processed.add(`${x},${y}`);
-            
-            panel.clearPattern.forEach(({x: dx, y: dy}) => {
-                const nx = x + dx;
-                const ny = y + dy;
-                if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && !processed.has(`${nx},${ny}`)) {
-                    toRemove.push({x: nx, y: ny});
-                    processed.add(`${nx},${ny}`);
-                }
-            });
-            
-            const removedColors = processRemovePanels(toRemove);
-            
-            setTimeout(() => {
-                const baseScore = toRemove.length * 95;
-                const bonusScore = Math.pow(toRemove.length, 1.2) * 5;
-                const multiplier = gameState.specialEffects.scoreBoost ? gameState.specialEffects.scoreBoost.multiplier : 1;
-                gameState.score += Math.floor((baseScore + bonusScore) * multiplier);
-                
-                Object.entries(removedColors).forEach(([color, count]) => {
-                    updateSkillProgress(color, count);
-                });
-                
-                updateSpecialEffects();
-                
-                setTimeout(() => {
-                    dropPanels();
-                    fillBoard();
-                    gameState.pendingActions.shift();
-                    processNextAction();
-                }, 500);
-            }, 300);
+function handleSpecialPanelTap(x, y) {
+    const panel = gameState.board[y][x];
+    if (panel.type !== 'special' || !panel.clearPattern) {
+        gameState.pendingActions.shift();
+        processNextAction();
+        return;
+    }
+    
+    const toRemove = [{x, y}]; // 発動したパネル自体を追加
+    const processed = new Set();
+    processed.add(`${x},${y}`);
+    
+    panel.clearPattern.forEach(({x: dx, y: dy}) => {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && !processed.has(`${nx},${ny}`)) {
+            toRemove.push({x: nx, y: ny});
+            processed.add(`${nx},${ny}`);
         }
+    });
+    
+    const removedColors = processRemovePanels(toRemove);
+    
+    setTimeout(() => {
+        const baseScore = toRemove.length * 95;
+        const bonusScore = Math.pow(toRemove.length, 1.2) * 5;
+        const multiplier = gameState.specialEffects.scoreBoost ? gameState.specialEffects.scoreBoost.multiplier : 1;
+        gameState.score += Math.floor((baseScore + bonusScore) * multiplier);
+        
+        Object.entries(removedColors).forEach(([color, count]) => {
+            updateSkillProgress(color, count);
+        });
+        
+        updateSpecialEffects();
+        
+        setTimeout(() => {
+            dropPanels();
+            fillBoard();
+            gameState.pendingActions.shift();
+            processNextAction();
+        }, 500);
+    }, 300);
+}
 
         function saveData() {
             const data = {
