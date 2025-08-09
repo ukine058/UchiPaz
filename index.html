@@ -801,6 +801,7 @@
     </div>
 
     <script>
+        // gameStateに新しいフラグを追加
         let gameState = {
             board: [],
             score: 0,
@@ -840,7 +841,10 @@
                 orange: 1
             },
             isTimerRunning: true,
-            pendingActions: []
+            pendingActions: [],
+            isProcessingAction: false, // アクション処理中のフラグ
+            isBombProcessing: false,  // 爆弾処理中のフラグ
+            isSkillProcessing: false // スキル処理中のフラグ
         };
 
         const colors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
@@ -986,7 +990,7 @@
         let lastSelectedCell = null;
 
         function startSelection(e) {
-            if (!gameState.isGameActive) return;
+            if (!gameState.isGameActive || gameState.isProcessingAction) return;
             
             isSelecting = true;
             gameState.selectedCells = [];
@@ -997,6 +1001,7 @@
             const y = parseInt(cell.dataset.y);
             
             if (gameState.board[y][x] && gameState.board[y][x].type === 'bomb') {
+                if (gameState.isBombProcessing) return; // 爆弾処理中は無視
                 queueAction(() => explodeBomb(x, y));
                 return;
             }
@@ -1085,25 +1090,33 @@
             });
         }
 
+        // queueActionの修正：アクション追加を制限
         function queueAction(action) {
+            if (gameState.isProcessingAction) {
+                return; // 処理中は新たなアクションを無視
+            }
             gameState.pendingActions.push(action);
             if (gameState.pendingActions.length === 1) {
                 processNextAction();
             }
         }
 
+        // processNextActionの修正：フラグを管理
         function processNextAction() {
             if (gameState.pendingActions.length === 0) {
+                gameState.isProcessingAction = false;
                 if (gameState.timeLeft <= 0 && gameState.isGameActive) {
                     endGame();
                 }
                 return;
             }
 
+            gameState.isProcessingAction = true;
             const action = gameState.pendingActions[0];
             action();
         }
 
+        // processChainの修正：フラグ管理（変更は最小限）
         function processChain() {
             const chainLength = gameState.selectedCells.length;
             gameState.chain = chainLength;
@@ -1222,7 +1235,15 @@
             }
         }
 
+        // explodeBombの修正：フラグ管理と連打防止
         function explodeBomb(x, y) {
+            if (gameState.isBombProcessing) {
+                gameState.pendingActions.shift();
+                processNextAction();
+                return;
+            }
+            
+            gameState.isBombProcessing = true;
             const toRemove = [];
             for (let dy = -1; dy <= 1; dy++) {
                 for (let dx = -1; dx <= 1; dx++) {
@@ -1251,6 +1272,7 @@
                 setTimeout(() => {
                     dropPanels();
                     fillBoard();
+                    gameState.isBombProcessing = false;
                     gameState.pendingActions.shift();
                     processNextAction();
                 }, 500);
@@ -1304,9 +1326,22 @@
             });
         }
 
+        // useSkillの修正：スキル連打防止
         function useSkill(skillIndex) {
+            if (gameState.isSkillProcessing || gameState.skillCooldowns[skillIndex]) {
+                gameState.pendingActions.shift();
+                processNextAction();
+                return;
+            }
+            
             const skill = gameState.activeDeck[skillIndex];
-            if (!skill) return;
+            if (!skill) {
+                gameState.pendingActions.shift();
+                processNextAction();
+                return;
+            }
+            
+            gameState.isSkillProcessing = true;
             
             if (skill.cutsceneUrl) {
                 showCutscene(skill.cutsceneUrl);
@@ -1321,6 +1356,7 @@
                 setTimeout(() => {
                     delete gameState.skillCooldowns[skillIndex];
                     updateSkillButtons();
+                    gameState.isSkillProcessing = false;
                     gameState.pendingActions.shift();
                     processNextAction();
                 }, 1000);
@@ -2023,17 +2059,17 @@
         }
 
         function clearColorImage(color) {
-    if (confirm(`${color}の画像を解除しますか？`)) {
-        gameState.colorImages[color] = null;
-        const preview = document.getElementById(`color${color.charAt(0).toUpperCase() + color.slice(1)}Preview`);
-        preview.style.display = 'none';
-        preview.src = '';
-        saveData();
-        updateDisplay();
-        updateColorForm();
-        alert(`${color}の画像を解除しました！`);
-    }
-}
+            if (confirm(`${color}の画像を解除しますか？`)) {
+                gameState.colorImages[color] = null;
+                const preview = document.getElementById(`color${color.charAt(0).toUpperCase() + color.slice(1)}Preview`);
+                preview.style.display = 'none';
+                preview.src = '';
+                saveData();
+                updateDisplay();
+                updateColorForm();
+                alert(`${color}の画像を解除しました！`);
+            }
+        }
 
         function updateColorForm() {
             const colors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
@@ -2188,16 +2224,25 @@
             select.value = currentValue;
         }
 
+        // handleSpecialPanelTapの修正：安定化と競合防止
         function handleSpecialPanelTap(x, y) {
             const panel = gameState.board[y][x];
-            if (panel.type !== 'special' || !panel.clearPattern) return;
+            if (panel.type !== 'special' || !panel.clearPattern) {
+                gameState.pendingActions.shift();
+                processNextAction();
+                return;
+            }
             
             const toRemove = [];
+            const processed = new Set();
+            processed.add(`${x},${y}`);
+            
             panel.clearPattern.forEach(({x: dx, y: dy}) => {
                 const nx = x + dx;
                 const ny = y + dy;
-                if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10) {
+                if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && !processed.has(`${nx},${ny}`)) {
                     toRemove.push({x: nx, y: ny});
+                    processed.add(`${nx},${ny}`);
                 }
             });
             
@@ -2286,5 +2331,3 @@
     </script>
 </body>
 </html>
-```
-
